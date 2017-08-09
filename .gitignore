@@ -1,0 +1,18 @@
+# 以'#'开始的行，被视为注释.
+#以下规则适用于VS
+#忽略.ipch文件
+*.ipch
+*.sdf
+*.exe
+*.ilk
+*.pdb
+*.suo
+*.obj
+#忽略ipch文件夹
+ipch
+Debug
+Release
+#忽略当前目标下的/GamePlatform/Debug中的文件
+/GamePlatform/Debug
+#忽略当前目标下的/GamePlatform/Release中的文件
+/GamePlatform/Release
