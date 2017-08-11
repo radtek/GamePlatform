@@ -156,6 +156,7 @@ BEGIN_MESSAGE_MAP(CGamePlatformDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_GAME_CONFIG, &CGamePlatformDlg::OnBnClickedGameConfig)
 	ON_MESSAGE(WM_USER_TRAYICON_NOTIFY, &CGamePlatformDlg::OnMouseOnTrayicon)
 	ON_COMMAND(IDRCANCEL, &CGamePlatformDlg::OnRcancel)
+	ON_WM_QUERYENDSESSION()
 END_MESSAGE_MAP()
 
 
@@ -517,9 +518,14 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_LIGHTS_SWITCHS, "RECIP MIXTURE RATIO:1", "Ratio", SIMCONNECT_DATATYPE_FLOAT32);
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_LIGHTS_SWITCHS, "GENERAL ENG FUEL VALVE:1", "Bool", SIMCONNECT_DATATYPE_INT32);
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_LIGHTS_SWITCHS, "LIGHT PANEL", "Bool", SIMCONNECT_DATATYPE_INT32);
-
+			//
+			
 			//// Request an event when the simulation starts
 			hr = SimConnect_SubscribeToSystemEvent(m_hSimConnect, EVENT_SIM_START, "SimStart");
+
+			hr = SimConnect_SubscribeToSystemEvent(m_hSimConnect, EVENT_FLIGHT_LOAD, "FlightLoaded");
+			hr = SimConnect_SubscribeToSystemEvent(m_hSimConnect, EVENT_FLIGHT_CRASHED, "Crashed");
+			//hr = SimConnect_SubscribeToSystemEvent(m_hSimConnect, EVENT_RECUR_1SEC, "1sec");
 			Sleep(10);
 			m_pThreadForSimConnect = AfxBeginThread(ThreadForSimConnect, this);
 			SimConnect_CallDispatch(m_hSimConnect, ::MyDispatchProcRD, this);
@@ -673,8 +679,8 @@ int CGamePlatformDlg::P3D_DataProcess()
 		ConnectToController.m_sToDOFBuf.nCheckID = 55;
 		ConnectToController.m_sToDOFBuf.nCmd = 0;
 
-		ConnectToController.m_sToDOFBuf.DOFs[0] = SpecialFunctions.fnval(m_faKnots, m_faPitchCoefs, m_FnvalTiming)*0.2;
-		ConnectToController.m_sToDOFBuf.DOFs[1] = SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, m_FnvalTiming)*0.2;
+		ConnectToController.m_sToDOFBuf.DOFs[0] = SpecialFunctions.fnval(m_faKnots, m_faPitchCoefs, m_FnvalTiming)*0.4;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, m_FnvalTiming)*0.4;
 		ConnectToController.m_sToDOFBuf.DOFs[2] = (SpecialFunctions.fnval(m_faKnots, m_faYawCoefs, m_FnvalTiming))*0.2f; //0.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[3] = 0.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[4] = 0.0f;
@@ -805,6 +811,7 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 #ifdef USE_DOF
 	pGamePlatformDlg->ConnectToController.DOF_UpToMedian();
+	pGamePlatformDlg->ConnectToController.DOF_ToMedian();
 	pGamePlatformDlg->ConnectToController.DOF_ToRun();
 #endif
 	pGamePlatformDlg->GamesCheckAndPrepare(pGamePlatformDlg->m_sConfigParameterList.tcaGameName);
@@ -870,6 +877,22 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 		pGamePlatformDlg->m_bSimConnectSuccessFlag = TRUE;
 		break;
 	}
+	case SIMCONNECT_RECV_ID_EVENT_FILENAME:
+	{
+		SIMCONNECT_RECV_EVENT_FILENAME *evt = (SIMCONNECT_RECV_EVENT_FILENAME*)pData;
+		switch (evt->uEventID)
+		{
+		case EVENT_FLIGHT_LOAD:
+			OutputDebugString(TEXT("Flight Load!\r\n"));
+			break;
+		case EVENT_FLIGHT_CRASHED:
+			OutputDebugString(TEXT("Flight Crashed!\r\n"));
+			break;
+		default:
+			break;
+		}
+		break;
+	}
 	case SIMCONNECT_RECV_ID_SIMOBJECT_DATA_BYTYPE:
 	{
 		SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE *pObjData = (SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE*)pData;
@@ -923,13 +946,13 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_VERTICAL_SPEED, strOutput);
 				//PITCH
 				tAngleToPulseValue = static_cast<int>(12.35 * pGamePlatformDlg->m_sAttitude.PitchDegrees - 420);
-				if (100 < tAngleToPulseValue)
+				if (-100 < tAngleToPulseValue)
 				{
-					tAngleToPulseValue = 0;
+					tAngleToPulseValue = -100;
 				}
-				else if (-550 > tAngleToPulseValue)
+				else if (-450 > tAngleToPulseValue)
 				{
-					tAngleToPulseValue = -550;
+					tAngleToPulseValue = -450;
 				}
 				pGamePlatformDlg->m_sDataToExpansion.nPitch = tAngleToPulseValue;
 				//空速
@@ -1428,6 +1451,18 @@ afx_msg LRESULT CGamePlatformDlg::OnMouseOnTrayicon(WPARAM wParam, LPARAM lParam
 
 void CGamePlatformDlg::OnRcancel()
 {
-	exit(0);
 	// TODO:  在此添加命令处理程序代码
+	ConnectToController.DOF_ToMedian();
+	exit(0);
+}
+
+
+BOOL CGamePlatformDlg::OnQueryEndSession()
+{
+	if (!CDialogEx::OnQueryEndSession())
+		return FALSE;
+
+	// TODO:  Add your specialized query end session code here
+	ConnectToController.DOF_ToBottom();
+	return TRUE;
 }

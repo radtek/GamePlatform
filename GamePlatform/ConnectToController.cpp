@@ -120,7 +120,8 @@ int CConnectToController::DOF_ToMedian()
 		t_timing++;
 		if (t_timing >= m_MaxDelay)
 		{
-			AfxMessageBox(TEXT("DOF_ToMedian failed!\r\nPlease check the manual!"));
+			return -1;
+			//AfxMessageBox(TEXT("DOF_ToMedian failed!\r\nPlease check the manual!"));
 			//do something
 			//exit(-1);
 		}
@@ -151,7 +152,8 @@ int CConnectToController::DOF_ToBottom()
 		t_timing++;
 		if (t_timing >= m_MaxDelay)
 		{
-			AfxMessageBox(TEXT("DOF_ToBottom failed!\r\nPlease check the manual!"));
+			return -1;
+			//AfxMessageBox(TEXT("DOF_ToBottom failed!\r\nPlease check the manual!"));
 			//do something
 			//exit(-1);
 		}

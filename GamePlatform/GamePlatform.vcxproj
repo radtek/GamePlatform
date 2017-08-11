@@ -116,6 +116,7 @@
     <ClInclude Include="GamePlatform.h" />
     <ClInclude Include="GamePlatformDlg.h" />
     <ClInclude Include="MT_AsyncSocket.h" />
+    <ClInclude Include="MT_SimConnect.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SpecialFunctions.h" />
     <ClInclude Include="stdafx.h" />
@@ -127,6 +128,7 @@
     <ClCompile Include="GamePlatform.cpp" />
     <ClCompile Include="GamePlatformDlg.cpp" />
     <ClCompile Include="MT_AsyncSocket.cpp" />
+    <ClCompile Include="MT_SimConnect.cpp" />
     <ClCompile Include="SpecialFunctions.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

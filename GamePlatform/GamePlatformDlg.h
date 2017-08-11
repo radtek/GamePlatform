@@ -40,7 +40,12 @@ static enum P3D_EventID{
 	EVENT_E,
 
 	EVENT_X,//THROTTLE
-	EVENT_Z
+	EVENT_Z,
+
+	EVENT_FLIGHT_LOAD,
+	EVENT_FLIGHT_CRASHED,
+
+	EVENT_RECUR_1SEC,
 };
 static enum P3D_DataDefineID {
 	DEFINITION_THROTTLE,
@@ -443,4 +448,5 @@ protected:
 	
 public:
 	afx_msg void OnRcancel();
+	afx_msg BOOL OnQueryEndSession();
 };
