@@ -12,8 +12,8 @@
 #include "Resource.h"
 
 
-#define  USE_EXTERNAL_CONTROL
-#define USE_DOF
+//#define  USE_EXTERNAL_CONTROL
+//#define USE_DOF
 #define		MAX_ANGULAR_VELOCITY			(0.06)
 #define		MAX_ANGULAR_ACC					(0.0)
 #ifdef _DEBUG
