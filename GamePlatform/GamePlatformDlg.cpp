@@ -33,6 +33,7 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 UINT __cdecl ThreadPrepareProcess(LPVOID pParam);
 void OnReceiveForExpansion(LPVOID pParam, int nErrorCode);
 void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode);
+void OnReceiveForSimtools(LPVOID pParam, int nErrorCode);
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -196,21 +197,34 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	m_hTrayMenu = LoadMenu(GetModuleHandle(NULL),MAKEINTRESOURCE(IDR_TRAYICON));
 	NotifyIconInit(AfxGetMainWnd()->m_hWnd, IDI_ICON1, WM_USER_TRAYICON_NOTIFY, LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_TRAYICON)), m_szTip);
 	NotifyIconShow();
-#if 1
+
 	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
 
 	CheckProcessMutex(m_sConfigParameterList.tcaGameName);
-
+	//Controller
 	_tcscpy_s(ConnectToController.m_tcaControllerIP, m_sConfigParameterList.tcaControllerIP);
 	ConnectToController.m_nControllerPort = m_sConfigParameterList.nControllerPort;
 	ConnectToController.AsyncSocketInit(m_sConfigParameterList.nPortForController, SOCK_DGRAM,63L,m_sConfigParameterList.tcaLocalIP);
-	m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
-	m_ConnectToExpansion.UserObject = this;
-	m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion,SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
 
+	//External Device
 	m_CConnectToExternalDevice.UserOnReceive = OnReceiveForExternalDevice;
 	m_CConnectToExternalDevice.UserObject = this;
 	m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.0.131"));
+
+	if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("P3D")))
+	{
+		//Expansion
+		m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
+		m_ConnectToExpansion.UserObject = this;
+		m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion, SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
+	}
+	else if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
+	{
+		//Simtools
+		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
+		m_CConnectToLocalSoft.UserObject = this;
+		m_CConnectToLocalSoft.AsyncSocketInit(m_sConfigParameterList.nPortForSoftware, SOCK_DGRAM, 63L, m_sConfigParameterList.tcaLocalIP);
+	}
 	//Sleep(2000);
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
 	Sleep(2000);//wait mcu data;
@@ -218,7 +232,7 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	
 
 	m_uiMMTimer = ::timeSetEvent(10, 0, TimeProc, (DWORD_PTR)this, TIME_PERIODIC);
-#endif
+
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -826,9 +840,17 @@ void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
 			//nothing
 		}
 	}
+}
 
-
-
+void OnReceiveForSimtools(LPVOID pParam, int nErrorCode)
+{
+	TCHAR t_tcReceiveData[128];
+	int t_nRet = 0;
+	CString t_ip;
+	UINT t_port;
+	ConfigParameterList t_sConfigParameterList;
+	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
+	
 }
 
 UINT __cdecl ThreadForSimConnect(LPVOID pParam)

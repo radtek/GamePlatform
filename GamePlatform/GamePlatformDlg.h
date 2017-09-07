@@ -369,6 +369,7 @@ public:
 	CConnectToAttitudeSource ConnectToAttitudeSource;					//connect to simtools software/P3D game software/other
 	CMT_AsyncSocket	m_ConnectToExpansion;								//Connect to second master control board for instrument panel
 	CMT_AsyncSocket m_CConnectToExternalDevice;							//as IPAD,Phone
+	CMT_AsyncSocket m_CConnectToLocalSoft;								//as Simtools Soft
 
 	CSpecialFunctions SpecialFunctions;									//some functions
 
