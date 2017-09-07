@@ -198,3 +198,17 @@ float	CSpecialFunctions::LimitVelAndACC(MotionParaList *tspMotionParaList)
 
 	return tspMotionParaList->fDesPos;
 }
+
+void CSpecialFunctions::CharToHex(char * pt)
+{
+	if ((*pt >= '0') && (*pt <= '9'))
+	{
+		*pt -= '0';
+	}
+	else if ((*pt >= 'A') && (*pt <= 'F'))
+	{
+		*pt -= 'A';
+		*pt += 10;
+	}
+}
+

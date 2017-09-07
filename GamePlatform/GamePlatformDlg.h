@@ -277,7 +277,27 @@ struct ExpansionToHost
 
 //DIRT3
 
+struct s_simtools_chardata
+{
+	char simtools_data_head_char[4];
+	char simtools_data_pitch_char[4];
+	char simtools_data_roll_char[4];
+	char simtools_data_sway_char[4];
+	char simtools_data_surge_char[4];
+	char simtools_data_heave_char[4];
+	char simtools_data_yaw_char[4];
+};
 
+struct SimtoolsData
+{
+	UINT16 Head;
+	UINT16 Pitch;
+	UINT16 Roll;
+	UINT16 Sway;
+	UINT16 Surge;
+	UINT16 Heave;
+	UINT16 Yaw;
+};
 //COMMON STRUCT
 
 enum PlatformWorkMode
@@ -289,15 +309,15 @@ enum PlatformWorkMode
 
 struct ConfigParameterList
 {
-	float nK_Yaw;															//
-	float nK_Pitch;
-	float nK_Roll;
-	float nK_Surge;
-	float nK_Sway;
-	float nK_Heave;
+	float fK_Pitch;
+	float fK_Roll;
+	float fK_Yaw;															//
+	float fK_Surge;
+	float fK_Sway;
+	float fK_Heave;
 
-	float nK1_Surge;											//additional
-	float nK1_Sway;												//additional
+	float fK1_Surge;											//additional
+	float fK1_Sway;												//additional
 
 	BOOL bDlgEnable;
 	BOOL bExternalControlEnable;
@@ -338,6 +358,8 @@ public:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 //NOTIFYICON
 public:
+	HANDLE m_hSingleProMutex;
+
 	NOTIFYICONDATA m_nidata;
 	BOOL m_bVisibled;										//NOTIFYICON show or not;
 	TCHAR m_szTip[64];
@@ -370,6 +392,10 @@ public:
 	CMT_AsyncSocket	m_ConnectToExpansion;								//Connect to second master control board for instrument panel
 	CMT_AsyncSocket m_CConnectToExternalDevice;							//as IPAD,Phone
 	CMT_AsyncSocket m_CConnectToLocalSoft;								//as Simtools Soft
+
+	CString m_csRemoteIP;
+	UINT m_nRemotePort;
+
 
 	CSpecialFunctions SpecialFunctions;									//some functions
 
@@ -451,7 +477,12 @@ public:																	//P3D use parameter.
 	int P3D_DataProcess();
 	int P3D_ExternalControlDataProcess(DataToHost tsDataToHost);
 	//
-	
+
+	//DIRT3
+public:
+	SimtoolsData m_sSimtoolsData;
+
+	int CGamePlatformDlg::DIRT3_DataProcess();
 protected:
 	
 public:

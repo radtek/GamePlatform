@@ -140,6 +140,9 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 	m_bSimConnectSuccessFlag=FALSE;
 
 	memset(&m_sAircraftPanel, 0, sizeof(FSX_Panel));
+
+	m_csRemoteIP =_T("192.168.1.110");
+	m_nRemotePort=10005;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -192,6 +195,21 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 	ShowWindow(SW_HIDE);
 	// TODO: Add extra initialization here
+
+	m_hSingleProMutex = CreateMutex(NULL, TRUE, _T("GamePlatform"));
+	if (m_hSingleProMutex)
+	{
+		if (ERROR_ALREADY_EXISTS == GetLastError())
+		{
+			AfxMessageBox(_T("ALREADY_EXISTS!\r\n"));
+			exit(0);
+		}
+	}
+	else
+	{
+		exit(0);
+	}
+
 	//NOTIFYICON
 	_tcscpy_s(m_szTip,_T("MOTUS"));
 	m_hTrayMenu = LoadMenu(GetModuleHandle(NULL),MAKEINTRESOURCE(IDR_TRAYICON));
@@ -211,28 +229,12 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	m_CConnectToExternalDevice.UserObject = this;
 	m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.0.131"));
 
-	if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("P3D")))
-	{
-		//Expansion
-		m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
-		m_ConnectToExpansion.UserObject = this;
-		m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion, SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
-	}
-	else if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
-	{
-		//Simtools
-		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
-		m_CConnectToLocalSoft.UserObject = this;
-		m_CConnectToLocalSoft.AsyncSocketInit(m_sConfigParameterList.nPortForSoftware, SOCK_DGRAM, 63L, m_sConfigParameterList.tcaLocalIP);
-	}
 	//Sleep(2000);
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
 	Sleep(2000);//wait mcu data;
 	CWinThread *t_thread = AfxBeginThread(ThreadPrepareProcess, this);
-	
 
 	m_uiMMTimer = ::timeSetEvent(10, 0, TimeProc, (DWORD_PTR)this, TIME_PERIODIC);
-
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -378,15 +380,19 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 
 	m_sConfigParameterList.bExternalControlEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("EXTERNAL_CONTROL_ENABLE"), 0, lpFileName);
 
-	m_sConfigParameterList.nK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 0, lpFileName)/100.0f;
-	m_sConfigParameterList.nK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.nK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.nK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.nK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.nK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 0, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 0, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 0, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 0, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 0, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 0, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 0, lpFileName) / 100.0f;
+
+	m_sConfigParameterList.fK1_Surge = 0.12f;
+	m_sConfigParameterList.fK1_Sway = 0.1f;
 
 	m_sConfigParameterList.bDlgEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("DLG_ENABLE"), 0, lpFileName);
 	
+
 }
 
 void CGamePlatformDlg::CheckProcessMutex(LPCTSTR lpName)
@@ -418,6 +424,11 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 {
 	if (0 == _tcscmp(lpName, TEXT("P3D")))
 	{
+		m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
+		m_ConnectToExpansion.UserObject = this;
+		m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion, SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
+
+
 		if (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
 		{
 			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
@@ -559,7 +570,35 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 	}
 	else if (0 == _tcscmp(lpName, TEXT("DIRT3")))
 	{
-		ConnectToAttitudeSource.AsyncSocketInit(m_sConfigParameterList.nPortForSoftware, SOCK_DGRAM, NULL, m_sConfigParameterList.tcaLocalIP);
+		//Simtools
+		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
+		m_CConnectToLocalSoft.UserObject = this;
+		m_CConnectToLocalSoft.AsyncSocketInit(m_sConfigParameterList.nPortForSoftware, SOCK_DGRAM, 63L, m_sConfigParameterList.tcaLocalIP);
+
+		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
+		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameEngine.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
+		Sleep(5000);
+		if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+		{
+			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), m_sConfigParameterList.tcaGameFolderPath, SW_SHOWMINIMIZED);
+			if (ret <= (HINSTANCE)32)
+			{
+				AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
+				exit(-1);
+			}
+		}
+		int t_timing = 0;
+		while (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
+		{
+			Sleep(1000);
+			t_timing++;
+			if (15 <= t_timing)
+			{
+				AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
+				exit(-1);
+			}
+		}
+		Sleep(3000);
 	}
 	else
 	{
@@ -750,7 +789,39 @@ int CGamePlatformDlg::P3D_DataProcess()
 	
 	return 0;
 }
+int CGamePlatformDlg::DIRT3_DataProcess()
+{
+	if (0xEEEE == m_sSimtoolsData.Head)
+	{
+		ConnectToController.DOF_ToMedian();
+	}
+	else if (0xFFFF == m_sSimtoolsData.Head)
+	{
+		ConnectToController.m_sToDOFBuf.nCheckID = 55;
+		ConnectToController.m_sToDOFBuf.nCmd = 0;
 
+		ConnectToController.m_sToDOFBuf.DOFs[3] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Sway - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Sway;
+		ConnectToController.m_sToDOFBuf.DOFs[4] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Surge - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Surge;
+		ConnectToController.m_sToDOFBuf.DOFs[5] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Heave - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Heave;
+		ConnectToController.m_sToDOFBuf.DOFs[0] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Roll - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Roll \
+			+ ConnectToController.m_sToDOFBuf.DOFs[3] * m_sConfigParameterList.fK1_Sway;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Pitch - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Pitch \
+			+ ConnectToController.m_sToDOFBuf.DOFs[4] * m_sConfigParameterList.fK1_Surge;
+		ConnectToController.m_sToDOFBuf.DOFs[2] = 0;//(static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Yaw - 0x7FFF)) / 10000)			* m_sConfigParameterList.nK_Yaw;
+		
+
+		ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf), sizeof(ConnectToController.m_sToDOFBuf), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+	}
+	else if (0xBBBB == m_sSimtoolsData.Head)
+	{
+	}
+	char t_buffer[128];
+	sprintf_s(t_buffer, sizeof(t_buffer), "%f#%f#%f#%f#%f#%f#%f#%f#", &m_sConfigParameterList.fK_Pitch, &m_sConfigParameterList.fK_Roll, \
+		&m_sConfigParameterList.fK_Yaw, &m_sConfigParameterList.fK_Surge, &m_sConfigParameterList.fK_Sway, \
+		&m_sConfigParameterList.fK_Heave, &m_sConfigParameterList.fK1_Surge, &m_sConfigParameterList.fK1_Sway);
+	m_CConnectToLocalSoft.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
+	return 0;
+}
 void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 {
 	int t_nRet = 0;
@@ -810,34 +881,21 @@ void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
 {
 	TCHAR t_tcReceiveData[128];
 	int t_nRet = 0;
-	CString t_ip;
-	UINT t_port;
 	ConfigParameterList t_sConfigParameterList;
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 	t_nRet = pGamePlatformDlg->m_CConnectToExternalDevice.ReceiveFrom(&t_tcReceiveData, sizeof(t_tcReceiveData), \
-		/*CString(pGamePlatformDlg->m_sConfigParameterList.tcExternalDeviceIP)*/t_ip, t_port/*pGamePlatformDlg->m_sConfigParameterList.nExternalDevicePort*/, 0);
+		pGamePlatformDlg->m_csRemoteIP, pGamePlatformDlg->m_nRemotePort, 0);
 	if (SOCKET_ERROR == t_nRet)
 	{
 		pGamePlatformDlg->m_CConnectToExternalDevice.ErrorWarnOfReceiveFrom(GetLastError());
 	}
 	else
 	{
-		if (8 == sscanf_s((const char *)t_tcReceiveData, "%f#%f#%f#%f#%f#%f#%f#%f#", &t_sConfigParameterList.nK_Pitch, &t_sConfigParameterList.nK_Roll, \
-			&t_sConfigParameterList.nK_Yaw, &t_sConfigParameterList.nK_Surge, &t_sConfigParameterList.nK_Sway, \
-			&t_sConfigParameterList.nK_Heave, &t_sConfigParameterList.nK1_Surge, &t_sConfigParameterList.nK1_Sway))
+		if (8 == sscanf_s((const char *)t_tcReceiveData, "%f#%f#%f#%f#%f#%f#%f#%f#", &t_sConfigParameterList.fK_Pitch, &t_sConfigParameterList.fK_Roll, \
+			&t_sConfigParameterList.fK_Yaw, &t_sConfigParameterList.fK_Surge, &t_sConfigParameterList.fK_Sway, \
+			&t_sConfigParameterList.fK_Heave, &t_sConfigParameterList.fK1_Surge, &t_sConfigParameterList.fK1_Sway))
 		{
-			memcpy(&pGamePlatformDlg->m_sConfigParameterList, &t_sConfigParameterList, sizeof(ConfigParameterList));
-
-			CHAR t_return[24] = "Data OK!\r\n";
-			pGamePlatformDlg->m_CConnectToExternalDevice.SendTo(t_return, sizeof(t_return), \
-				t_port, t_ip);
-		}
-		else
-		{
-			CHAR t_return[24] = "Data lost!\r\n";
-			pGamePlatformDlg->m_CConnectToExternalDevice.SendTo(t_return, sizeof(t_return), \
-				t_port, t_ip/*pGamePlatformDlg->m_sConfigParameterList.nExternalDevicePort, pGamePlatformDlg->m_sConfigParameterList.tcExternalDeviceIP*/);
-			//nothing
+			memcpy(&pGamePlatformDlg->m_sConfigParameterList.fK_Pitch, &t_sConfigParameterList, sizeof(float)*8);
 		}
 	}
 }
@@ -850,7 +908,31 @@ void OnReceiveForSimtools(LPVOID pParam, int nErrorCode)
 	UINT t_port;
 	ConfigParameterList t_sConfigParameterList;
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
-	
+	s_simtools_chardata dh;
+	int i = 0;
+
+	if (sizeof(s_simtools_chardata) == pGamePlatformDlg->m_CConnectToLocalSoft.ReceiveFrom(&dh, sizeof(s_simtools_chardata),t_ip,t_port))
+	{
+		//recvfrom(Socket_udp_connect_with_simtools, (char *)&dh, sizeof(s_simtools_chardata), 0, (SOCKADDR *)&simtools_Addr, &simtools_AddrSize);
+		for (i = 0; i < 4; i++)
+		{
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_head_char[i]);
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_pitch_char[i]);
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_roll_char[i]);
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_sway_char[i]);
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_surge_char[i]);
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_heave_char[i]);
+			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_yaw_char[i]);
+		}
+
+		pGamePlatformDlg->m_sSimtoolsData.Head = ((dh.simtools_data_head_char[0]) << 12) | ((dh.simtools_data_head_char[1]) << 8) | ((dh.simtools_data_head_char[2]) << 4) | ((dh.simtools_data_head_char[3]) << 0);
+		pGamePlatformDlg->m_sSimtoolsData.Pitch = ((dh.simtools_data_pitch_char[0]) << 12) | ((dh.simtools_data_pitch_char[1]) << 8) | ((dh.simtools_data_pitch_char[2]) << 4) | ((dh.simtools_data_pitch_char[3]) << 0);
+		pGamePlatformDlg->m_sSimtoolsData.Roll = ((dh.simtools_data_roll_char[0]) << 12) | ((dh.simtools_data_roll_char[1]) << 8) | ((dh.simtools_data_roll_char[2]) << 4) | ((dh.simtools_data_roll_char[3]) << 0);
+		pGamePlatformDlg->m_sSimtoolsData.Sway = ((dh.simtools_data_sway_char[0]) << 12) | ((dh.simtools_data_sway_char[1]) << 8) | ((dh.simtools_data_sway_char[2]) << 4) | ((dh.simtools_data_sway_char[3]) << 0);
+		pGamePlatformDlg->m_sSimtoolsData.Surge = ((dh.simtools_data_surge_char[0]) << 12) | ((dh.simtools_data_surge_char[1]) << 8) | ((dh.simtools_data_surge_char[2]) << 4) | ((dh.simtools_data_surge_char[3]) << 0);
+		pGamePlatformDlg->m_sSimtoolsData.Heave = ((dh.simtools_data_heave_char[0]) << 12) | ((dh.simtools_data_heave_char[1]) << 8) | ((dh.simtools_data_heave_char[2]) << 4) | ((dh.simtools_data_heave_char[3]) << 0);
+		pGamePlatformDlg->m_sSimtoolsData.Yaw = ((dh.simtools_data_yaw_char[0]) << 12) | ((dh.simtools_data_yaw_char[1]) << 8) | ((dh.simtools_data_yaw_char[2]) << 4) | ((dh.simtools_data_yaw_char[3]) << 0);
+	}
 }
 
 UINT __cdecl ThreadForSimConnect(LPVOID pParam)
@@ -1321,7 +1403,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		}
 		else if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))
 		{
-			//pGamePlatformDlg->DIRT3_DataProcess();
+			pGamePlatformDlg->DIRT3_DataProcess();
 		}
 		else
 		{
