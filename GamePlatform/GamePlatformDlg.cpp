@@ -206,6 +206,10 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
 	m_ConnectToExpansion.UserObject = this;
 	m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion,SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
+
+	m_ConnectToExpansion.UserOnReceive = OnReceiveForExternalDevice;
+	m_ConnectToExpansion.UserObject = this;
+	m_ConnectToExpansion.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.0.131"));
 	//Sleep(2000);
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
 	Sleep(2000);//wait mcu data;
@@ -739,7 +743,6 @@ void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 	if (true == pGamePlatformDlg->m_bSimConnectSuccessFlag)
 	{
-		int t_nRet = 0;
 		t_nRet = pGamePlatformDlg->m_ConnectToExpansion.ReceiveFrom(&tsReturnedDataFromExpansion, sizeof(tsReturnedDataFromExpansion), CString(pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, 0);
 		if (SOCKET_ERROR == t_nRet)
 		{
@@ -786,6 +789,43 @@ void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 			//lost part data
 		}
 	}
+}
+
+void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
+{
+	TCHAR t_tcReceiveData[128];
+	int t_nRet = 0;
+	ConfigParameterList t_sConfigParameterList;
+	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
+	t_nRet = pGamePlatformDlg->m_CConnectToExternalDevice.ReceiveFrom(&t_tcReceiveData, sizeof(t_tcReceiveData), \
+		CString(pGamePlatformDlg->m_sConfigParameterList.tcExternalDeviceIP), pGamePlatformDlg->m_sConfigParameterList.nExternalDevicePort, 0);
+	if (SOCKET_ERROR == t_nRet)
+	{
+		pGamePlatformDlg->m_CConnectToExternalDevice.ErrorWarnOfReceiveFrom(GetLastError());
+	}
+	else
+	{
+		if (8 == sscanf_s((const char *)t_tcReceiveData, "%f#%f#%f#%f#%f#%f#%f#%f#", &t_sConfigParameterList.nK_Pitch, &t_sConfigParameterList.nK_Roll, \
+			&t_sConfigParameterList.nK_Yaw, &t_sConfigParameterList.nK_Surge, &t_sConfigParameterList.nK_Sway, \
+			&t_sConfigParameterList.nK_Heave, &t_sConfigParameterList.nK1_Surge, &t_sConfigParameterList.nK1_Sway))
+		{
+			memcpy(&pGamePlatformDlg->m_sConfigParameterList, &t_sConfigParameterList.nK_Pitch, sizeof(ConfigParameterList));
+
+			TCHAR t_return[24] = _T("Data OK!\r\n");
+			pGamePlatformDlg->m_CConnectToExternalDevice.SendTo(t_return, sizeof(t_return), \
+				pGamePlatformDlg->m_sConfigParameterList.nExternalDevicePort, pGamePlatformDlg->m_sConfigParameterList.tcExternalDeviceIP);
+		}
+		else
+		{
+			TCHAR t_return[24] = _T("Data lost!\r\n");
+			pGamePlatformDlg->m_CConnectToExternalDevice.SendTo(t_return, sizeof(t_return), \
+				pGamePlatformDlg->m_sConfigParameterList.nExternalDevicePort, pGamePlatformDlg->m_sConfigParameterList.tcExternalDeviceIP);
+			//nothing
+		}
+	}
+
+
+
 }
 
 UINT __cdecl ThreadForSimConnect(LPVOID pParam)

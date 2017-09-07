@@ -296,6 +296,9 @@ struct ConfigParameterList
 	float nK_Sway;
 	float nK_Heave;
 
+	float nK1_Surge;											//additional
+	float nK1_Sway;												//additional
+
 	BOOL bDlgEnable;
 	BOOL bExternalControlEnable;
 
@@ -317,6 +320,9 @@ struct ConfigParameterList
 
 	TCHAR tcaExpansionIP[17];
 	UINT nExpansionPort;
+
+	TCHAR tcExternalDeviceIP[17];
+	UINT nExternalDevicePort;
 };
 // CGamePlatformDlg dialog
 class CGamePlatformDlg : public CDialogEx
@@ -362,6 +368,7 @@ public:
 	CConnectToController ConnectToController;							//connect to master control board
 	CConnectToAttitudeSource ConnectToAttitudeSource;					//connect to simtools software/P3D game software/other
 	CMT_AsyncSocket	m_ConnectToExpansion;								//Connect to second master control board for instrument panel
+	CMT_AsyncSocket m_CConnectToExternalDevice;							//as IPAD,Phone
 
 	CSpecialFunctions SpecialFunctions;									//some functions
 
