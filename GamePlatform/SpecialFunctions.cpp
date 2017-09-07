@@ -28,8 +28,8 @@ INT CSpecialFunctions::GetIntDataFromConfigFile(LPCTSTR lpAppName, LPCTSTR lpKey
 	szIniPath += "\\";
 
 	szIniPath += lpFileName;
-
-	return GetPrivateProfileInt(lpAppName, lpKeyName, nDefault, lpFileName);
+	
+	return GetPrivateProfileInt(lpAppName, lpKeyName, nDefault, szIniPath);;
 }
 
 DWORD CSpecialFunctions::GetStringFromConfigFile(
@@ -152,8 +152,8 @@ float	CSpecialFunctions::LimitVelAndACC(MotionParaList *tspMotionParaList)
 	float tfCurVel=0.0f;							//current velocity
 	float tfPreVel=0.0f;							//the last velocity
 	float tfCurAcc=0.0f;							//current acceleration
-	float tfKpVel=0.95;
-	float tfKpAcc = 0.7;
+	float tfKpVel=0.95f;
+	float tfKpAcc = 0.7f;
 	tfCurVel = tspMotionParaList->fDesPos - tspMotionParaList->fPrePos;
 	tfPreVel = tspMotionParaList->fPrePos - tspMotionParaList->fPrePrePos;
 	tfCurAcc = tfCurVel - tfPreVel;
@@ -179,11 +179,11 @@ float	CSpecialFunctions::LimitVelAndACC(MotionParaList *tspMotionParaList)
 	}*/
 	if (tspMotionParaList->fMaxAngularAcc <= tfCurAcc)
 	{
-		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos + tspMotionParaList->fMaxAngularAcc / 10.0;
+		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos + tspMotionParaList->fMaxAngularAcc / 10.0f;
 	}
 	else if (-tspMotionParaList->fMaxAngularAcc >= tfCurAcc)
 	{
-		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos - tspMotionParaList->fMaxAngularAcc / 10.0;
+		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos - tspMotionParaList->fMaxAngularAcc / 10.0f;
 	}
 	if (tspMotionParaList->fDesPos >= tspMotionParaList->fMaxDesPos)
 	{
@@ -198,3 +198,17 @@ float	CSpecialFunctions::LimitVelAndACC(MotionParaList *tspMotionParaList)
 
 	return tspMotionParaList->fDesPos;
 }
+
+void CSpecialFunctions::CharToHex(char * pt)
+{
+	if ((*pt >= '0') && (*pt <= '9'))
+	{
+		*pt -= '0';
+	}
+	else if ((*pt >= 'A') && (*pt <= 'F'))
+	{
+		*pt -= 'A';
+		*pt += 10;
+	}
+}
+
