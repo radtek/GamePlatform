@@ -85,7 +85,9 @@ BOOL CGamePlatformApp::InitInstance()
 
 	//nResponse = dlg->DoModal
 	dlg->Create(IDD_GAMEPLATFORM_DIALOG);
-	//dlg->ShowWindow(SW_HIDE);
+#ifndef SHOW_DLG
+	dlg->ShowWindow(SW_HIDE);
+#endif
 	//CWinThread *t_thred = AfxBeginThread(ThreadReceiverFromController, &ConnectToController);
 	
 	BOOL bRet;

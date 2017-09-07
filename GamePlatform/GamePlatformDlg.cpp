@@ -11,9 +11,6 @@
 #include "resource.h"
 #include "Resource.h"
 
-
-//#define  USE_EXTERNAL_CONTROL
-//#define USE_DOF
 #define		MAX_ANGULAR_VELOCITY			(0.06)
 #define		MAX_ANGULAR_ACC					(0.0)
 #ifdef _DEBUG
@@ -34,7 +31,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 UINT __cdecl ThreadForSimConnect(LPVOID pParam);
 void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pContext);
 UINT __cdecl ThreadPrepareProcess(LPVOID pParam);
-UINT __cdecl ThreadForExpansion(LPVOID pParam);
+void OnReceiveForExpansion(LPVOID pParam, int nErrorCode);
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -136,7 +133,7 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 	}
 	m_FnvalTiming = 0;
 
-	psAttitude = nullptr;
+	//psAttitude = nullptr;
 	memset(&m_fPreHead_w,0,sizeof(float)*5);
 	m_bSimConnectSuccessFlag=FALSE;
 
@@ -206,7 +203,8 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	_tcscpy_s(ConnectToController.m_tcaControllerIP, m_sConfigParameterList.tcaControllerIP);
 	ConnectToController.m_nControllerPort = m_sConfigParameterList.nControllerPort;
 	ConnectToController.AsyncSocketInit(m_sConfigParameterList.nPortForController, SOCK_DGRAM,63L,m_sConfigParameterList.tcaLocalIP);
-
+	m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
+	m_ConnectToExpansion.UserObject = this;
 	m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion,SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
 	//Sleep(2000);
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
@@ -464,14 +462,14 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ACC, "ACCELERATION BODY X", "Feet per second squared");
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ACC, "ACCELERATION BODY Y", "Feet per second squared");
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ACC, "ACCELERATION BODY Z", "Feet per second squared");
-
-			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ATTITUDE, "PLANE PITCH DEGREES", "degrees", SIMCONNECT_DATATYPE_FLOAT32);
-			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ATTITUDE, "PLANE BANK DEGREES", "degrees", SIMCONNECT_DATATYPE_FLOAT32);
-
-			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ATTITUDE, "PLANE HEADING DEGREES MAGNETIC", "degrees", SIMCONNECT_DATATYPE_FLOAT32);
 			//Panel
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_PANEL, "VERTICAL SPEED", "Feet per second", SIMCONNECT_DATATYPE_FLOAT32);
-			//
+
+			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_PANEL, "PLANE PITCH DEGREES", "degrees", SIMCONNECT_DATATYPE_FLOAT32);
+			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_PANEL, "PLANE BANK DEGREES", "degrees", SIMCONNECT_DATATYPE_FLOAT32);
+
+			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_PANEL, "PLANE HEADING DEGREES MAGNETIC", "degrees", SIMCONNECT_DATATYPE_FLOAT32);
+
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_PANEL, "AIRSPEED INDICATED", "Knots", SIMCONNECT_DATATYPE_FLOAT32);
 
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_PANEL, "GENERAL ENG RPM:1", "Percent", SIMCONNECT_DATATYPE_INT32);
@@ -701,7 +699,7 @@ int CGamePlatformDlg::P3D_DataProcess()
 		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_BRAKE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_BrakeControl), &m_sP3D_Para.sBrake);*/
 		if (m_FnvalTiming >= 4)
 		{
-			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
+			//SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
 			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_PANEL, DEFINITION_PANEL, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
 			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_LIGHTS_SWITCHS, DEFINITION_LIGHTS_SWITCHS, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
 			SimConnect_CallDispatch(m_hSimConnect, ::MyDispatchProcRD, this);
@@ -730,62 +728,66 @@ int CGamePlatformDlg::P3D_DataProcess()
 			m_FnvalTiming++;
 		}
 	}
-	else
-	{
-		if (m_nCosFunctionTiming <= m_nTimeFactor)
-		{
-			
-			ConnectToController.m_sToDOFBuf2.nCheckID = 55;
-			ConnectToController.m_sToDOFBuf2.nCmd = 0;
-
-			ConnectToController.m_sToDOFBuf2.DOFs[0] = (m_fValueBeforStepSignal + (m_fStepSignalDiffrence + m_fStepSignalDiffrence*cosf(3.141592f + m_nCosFunctionTiming*(3.141592f / m_nTimeFactor))) / 2.0f)*0.5;
-			ConnectToController.m_sToDOFBuf2.DOFs[1] = SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, m_FnvalTiming)*0.5;
-			ConnectToController.m_sToDOFBuf2.DOFs[2] = SpecialFunctions.fnval(m_faKnots, m_faYawCoefs, m_FnvalTiming)*0.3f; //0.0f;
-			ConnectToController.m_sToDOFBuf2.DOFs[3] = 0.0f;
-			ConnectToController.m_sToDOFBuf2.DOFs[4] = 0.0f;
-			ConnectToController.m_sToDOFBuf2.DOFs[5] = 0.0f;
-
-			ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf2), sizeof(ConnectToController.m_sToDOFBuf2), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-			if (m_FnvalTiming >= 4)
-			{
-				SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
-				SimConnect_CallDispatch(m_hSimConnect, ::MyDispatchProcRD, this);
-
-				m_faPitchCoefs[0] = m_faPitchCoefs[1];
-				m_faPitchCoefs[1] = m_faPitchCoefs[2];
-				m_faPitchCoefs[2] = m_faPitchCoefs[3];
-				m_faPitchCoefs[3] = ConnectToController.m_sToDOFBuf2.DOFs[0];
-				m_faPHB_Buffer[0] = ConnectToController.m_sToDOFBuf2.DOFs[0];
-
-				m_faRollCoefs[0] = m_faRollCoefs[1];
-				m_faRollCoefs[1] = m_faRollCoefs[2];
-				m_faRollCoefs[2] = m_faRollCoefs[3];
-				m_faRollCoefs[3] = m_faPHB_Buffer[1];
-
-				m_faYawCoefs[0] = m_faYawCoefs[1];
-				m_faYawCoefs[1] = m_faYawCoefs[2];
-				m_faYawCoefs[2] = m_faYawCoefs[3];
-				m_faYawCoefs[3] = m_faPHB_Buffer[2];
-
-				m_FnvalTiming = 0;
-			}
-			else
-			{
-				m_FnvalTiming++;
-			}
-			m_nCosFunctionTiming++;
-		}
-		else
-		{
-			m_nCosFunctionTiming = 0;
-			m_fprePitchDegrees = ConnectToController.m_sToDOFBuf2.DOFs[0];
-			m_fprePrePitchDegrees = ConnectToController.m_sToDOFBuf2.DOFs[0];
-			m_bStepSignalFlag = FALSE;
-		}
-	}
 	
 	return 0;
 }
+
+void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
+{
+	int t_nRet = 0;
+	DataToHost tsReturnedDataFromExpansion;
+	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
+	if (true == pGamePlatformDlg->m_bSimConnectSuccessFlag)
+	{
+		int t_nRet = 0;
+		t_nRet = pGamePlatformDlg->m_ConnectToExpansion.ReceiveFrom(&tsReturnedDataFromExpansion, sizeof(tsReturnedDataFromExpansion), CString(pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, 0);
+		if (SOCKET_ERROR == t_nRet)
+		{
+			pGamePlatformDlg->m_ConnectToExpansion.ErrorWarnOfReceiveFrom(GetLastError());
+		}
+		else if (sizeof(DataToHost) == t_nRet)
+		{
+			memcpy(&(pGamePlatformDlg->m_sReturnedDataFromExpansion), &tsReturnedDataFromExpansion, sizeof(DataToHost));
+			pGamePlatformDlg->P3D_ExternalControlDataProcess(pGamePlatformDlg->m_sReturnedDataFromExpansion);
+		}
+		else
+		{
+			//lost part data
+		}
+		
+		//pGamePlatformDlg->m_sDataToExpansion.uiLightsFlag = 0xF0F0F0F0;			//TEST LIGHTS
+		if (4 == pGamePlatformDlg->m_FnvalTiming)
+		{
+#ifdef USE_EXTERNAL_CONTROL
+			if (2< (pGamePlatformDlg->m_sP3D_Para.sOtherControl.nCollectivePosition - pGamePlatformDlg->m_sAircraftPanel.nCollectivePosition))				//Destination-Current
+			{
+				PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYDOWN, VK_F3, 0);
+				PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYUP, VK_F3, 0);
+			}
+			else if (-2 > (pGamePlatformDlg->m_sP3D_Para.sOtherControl.nCollectivePosition - pGamePlatformDlg->m_sAircraftPanel.nCollectivePosition))		//Destination-Current
+			{
+				PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYDOWN, VK_F2, 0);
+				PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYUP, VK_F2, 0);
+			}
+
+			SimConnect_SetDataOnSimObject(pGamePlatformDlg->m_hSimConnect, DEFINITION_THROTTLE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_ThrottleControl), &pGamePlatformDlg->m_sP3D_Para.sThrottles);
+			SimConnect_SetDataOnSimObject(pGamePlatformDlg->m_hSimConnect, DEFINITION_RUDDER, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_RudderControl), &pGamePlatformDlg->m_sP3D_Para.sRudder);
+#endif
+		}
+
+		t_nRet = pGamePlatformDlg->m_ConnectToExpansion.SendTo(&(pGamePlatformDlg->m_sDataToExpansion), sizeof(pGamePlatformDlg->m_sDataToExpansion), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+
+		if (SOCKET_ERROR == t_nRet)
+		{
+			pGamePlatformDlg->m_ConnectToExpansion.ErrorWarnOfSendTo(GetLastError());
+		}
+		else
+		{
+			//lost part data
+		}
+	}
+}
+
 UINT __cdecl ThreadForSimConnect(LPVOID pParam)
 {
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
@@ -819,42 +821,7 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	return 0;
 }
 
-UINT __cdecl ThreadForExpansion(LPVOID pParam)
-{
-	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
-	while (1)
-	{
-		if (true == pGamePlatformDlg->m_bSimConnectSuccessFlag)
-		{
-			int t_nRet = 0;
-			DataToHost tsReturnedDataFromExpansion;
-			t_nRet = pGamePlatformDlg->m_ConnectToExpansion.ReceiveFrom(&tsReturnedDataFromExpansion, sizeof(tsReturnedDataFromExpansion), CString(pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, 0);
-			//if (SOCKET_ERROR == t_nRet)
-			//{
-			//	pGamePlatformDlg->m_ConnectToExpansion.ErrorWarnOfReceiveFrom(GetLastError());
-			//}
-			//else if (sizeof(DataToHost) == t_nRet)
-			//{
-			//	memcpy(&(pGamePlatformDlg->m_sReturnedDataFromExpansion), &tsReturnedDataFromExpansion, sizeof(DataToHost));
-			//}
-			//else
-			//{
-			//	//lost part data
-			//}
-			t_nRet = pGamePlatformDlg->m_ConnectToExpansion.SendTo(&(pGamePlatformDlg->m_sDataToExpansion), sizeof(pGamePlatformDlg->m_sDataToExpansion), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
-			if (SOCKET_ERROR == t_nRet)
-			{
-				//pGamePlatformDlg->m_ConnectToExpansion.ErrorWarnOfSendTo(GetLastError());
-			}
-			else
-			{
-				//lost part data
-			}
-		}
-		
-	}
-	return 0;
-}
+
 
 void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pContext)
 {
@@ -871,10 +838,26 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 	{
 	case SIMCONNECT_RECV_ID_OPEN:
 	{
-		hr = SimConnect_RequestDataOnSimObjectType(pGamePlatformDlg->m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
+		//hr = SimConnect_RequestDataOnSimObjectType(pGamePlatformDlg->m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
 		hr = SimConnect_RequestDataOnSimObjectType(pGamePlatformDlg->m_hSimConnect, REQUEST_PANEL, DEFINITION_PANEL, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
 		hr = SimConnect_RequestDataOnSimObjectType(pGamePlatformDlg->m_hSimConnect, REQUEST_LIGHTS_SWITCHS, DEFINITION_LIGHTS_SWITCHS, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
 		pGamePlatformDlg->m_bSimConnectSuccessFlag = TRUE;
+		break;
+	}
+	case SIMCONNECT_RECV_ID_EVENT:
+	{
+		SIMCONNECT_RECV_EVENT *evt = (SIMCONNECT_RECV_EVENT*)pData;
+		switch (evt->uEventID)
+		{
+		case EVENT_SIM_START:
+			OutputDebugString(TEXT("EVENT_SIM_START!\r\n"));
+			break;
+		case EVENT_FLIGHT_CRASHED:
+			OutputDebugString(TEXT("Flight Crashed!\r\n"));
+			break;
+		default:
+			break;
+		}
 		break;
 	}
 	case SIMCONNECT_RECV_ID_EVENT_FILENAME:
@@ -884,9 +867,6 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 		{
 		case EVENT_FLIGHT_LOAD:
 			OutputDebugString(TEXT("Flight Load!\r\n"));
-			break;
-		case EVENT_FLIGHT_CRASHED:
-			OutputDebugString(TEXT("Flight Crashed!\r\n"));
 			break;
 		default:
 			break;
@@ -899,344 +879,350 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 
 		switch (pObjData->dwRequestID)
 		{
-		case REQUEST_ATTITUDE:
+		case REQUEST_PANEL:
 		{
 			ObjectID1 = pObjData->dwObjectID;
+			memcpy(&pGamePlatformDlg->m_sAircraftPanel, &pObjData->dwData, sizeof(FSX_Panel));
+			//pGamePlatformDlg->m_psAircraftPanel = (FSX_Panel *)&pObjData->dwData;
 
-			pGamePlatformDlg->psAttitude = (P3D_Attitude *)&pObjData->dwData;
-			memcpy(&pGamePlatformDlg->m_sAttitude, &pObjData->dwData, sizeof(P3D_Attitude));
-			if ((fabsf(pGamePlatformDlg->psAttitude->BankDegrees) <= 0.000001f)\
-				&& (fabsf(pGamePlatformDlg->psAttitude->PitchDegrees) <= 0.000001f)\
-				&& (fabsf(pGamePlatformDlg->psAttitude->HeadingDegreesMagnetic) <= 0.000001f))
+			int tAngleToPulseValue=0;								//临时记录用角度值
+
+			CString strOutput;
+
+			pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed = pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed * 0.6;
+			tAngleToPulseValue = static_cast<int>((-0.0001441*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 5)) + 3.872e-05*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 4) \
+				+ 0.08375*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 3) + (-0.007153*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 2)) \
+				+ 4.929*pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed + 353.8);
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (700 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 700;
+			}
+			pGamePlatformDlg->m_sDataToExpansion.nVerticalSpeed = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_VERTICAL_SPEED, strOutput);
+#endif
+			if (((pGamePlatformDlg->m_sAircraftPanel.sAttitude.BankDegrees) <= 0.000001f)\
+				&& ((pGamePlatformDlg->m_sAircraftPanel.sAttitude.PitchDegrees) <= 0.000001f)\
+				&& (fabsf(pGamePlatformDlg->m_sAircraftPanel.sAttitude.HeadingDegreesMagnetic) <= 0.000001f))
 			{
 
 			}
 			else
 			{
-				pGamePlatformDlg->m_faPHB_Buffer[0] = pGamePlatformDlg->psAttitude->PitchDegrees;
-				pGamePlatformDlg->m_faPHB_Buffer[1] = pGamePlatformDlg->psAttitude->BankDegrees;	
-				pGamePlatformDlg->m_faPHB_Buffer[2] = 0;				
+				pGamePlatformDlg->m_faPHB_Buffer[0] = pGamePlatformDlg->m_sAircraftPanel.sAttitude.PitchDegrees;
+				pGamePlatformDlg->m_faPHB_Buffer[1] = pGamePlatformDlg->m_sAircraftPanel.sAttitude.BankDegrees;
+				pGamePlatformDlg->m_faPHB_Buffer[2] = 0;
 			}
+			//PITCH
+			tAngleToPulseValue = static_cast<int>(12.35 * pGamePlatformDlg->m_sAircraftPanel.sAttitude.PitchDegrees - 420);
+			if (-100 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = -100;
+			}
+			else if (-450 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = -450;
+			}
+			pGamePlatformDlg->m_sDataToExpansion.nPitch = tAngleToPulseValue;
+			//空速
+			tAngleToPulseValue = static_cast<int>(6 * pGamePlatformDlg->m_sAircraftPanel.fAirSpeed + (-120));
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (600 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 600;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nAirSpeed = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAirSpeed);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_AIRSPEED_INDICATED, strOutput);
+#endif
+			//转速
+			tAngleToPulseValue = static_cast<int>(-3.302*pGamePlatformDlg->m_sAircraftPanel.uiRotorRPM + 130.4);
+			if (0 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (-260 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = -260;
+			}
+			pGamePlatformDlg->m_sDataToExpansion.nEngineRPM = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%d"), pGamePlatformDlg->m_sAircraftPanel.uiEngineRPM);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_RPM, strOutput);
+#endif
+			//转速
+			tAngleToPulseValue = static_cast<int>(3.333*pGamePlatformDlg->m_sAircraftPanel.uiRotorRPM - 100);
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (290 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 290;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nRotorRPM = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%d"), pGamePlatformDlg->m_sAircraftPanel.nCollectivePosition/*uiRotorRPM*/);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ENG_ROTOR_RPM, strOutput);
+#endif
+			//高度   as roll
+			tAngleToPulseValue = static_cast<int>(10.72*pGamePlatformDlg->m_sAircraftPanel.sAttitude.BankDegrees + 560);
+			/*if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (1525 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 1525;
+			}*/
+			//还需要做其他运算处理
+			pGamePlatformDlg->m_sDataToExpansion.nAltimeter = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAltimeter);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ALTITUDE, strOutput);
+#endif
+			//罗盘
+			tAngleToPulseValue = static_cast<int>(-2 * pGamePlatformDlg->m_sAircraftPanel.fCompass + 360);
+
+			pGamePlatformDlg->m_sDataToExpansion.nCompass = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fCompass);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_MAGNETIC_COMPASS, strOutput);
+#endif
+			//进气压力表
+			tAngleToPulseValue = static_cast<int>(14.31*pGamePlatformDlg->m_sAircraftPanel.fManifoldPressure + (-28.81));
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (400 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 400;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nManifoldPressure = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fManifoldPressure);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_MANIFOLD_PRESSURE, strOutput);
+#endif
+			//电流表
+			tAngleToPulseValue = static_cast<int>(0.7188*pGamePlatformDlg->m_sAircraftPanel.fAmmeter + 79.08);
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (130 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 130;
+			}
+			pGamePlatformDlg->m_sDataToExpansion.nAmmeter = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAmmeter);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ELECTRICAL_GENALT_BUS_AMPS, strOutput);
+#endif
+			//机油压力表
+			tAngleToPulseValue = static_cast<int>(2.5*pGamePlatformDlg->m_sAircraftPanel.fOilPressure + 312.5)*2*1.5;
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (1400 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 1400;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nOilPressure = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fOilPressure);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_OIL_PRESSURE, strOutput);
+#endif
+
+			//副油箱
+			tAngleToPulseValue = static_cast<int>(1.2*pGamePlatformDlg->m_sAircraftPanel.fMainFuelQuantity + (-1.953e-14))*5;
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (120 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 120;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nAuxFuelQuantity = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAuxFuelQuantity);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_FUEL_TANK_LEFT_AUX_QUANTITY, strOutput);
+#endif
+
+			//机油温度表
+			tAngleToPulseValue = static_cast<int>(1.294*pGamePlatformDlg->m_sAircraftPanel.fOilTemperature + (-67.06));
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (245 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 245;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nOilTemperature = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fOilTemperature);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ENG_OIL_TEMPERATURE, strOutput);
+#endif
+
+			//主油箱
+			tAngleToPulseValue = static_cast<int>(1.2*pGamePlatformDlg->m_sAircraftPanel.fMainFuelQuantity + (-1.953e-14))*5;
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (120 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 120;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.nMainFuelQuantity = tAngleToPulseValue;
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fMainFuelQuantity);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_FUEL_TANK_LEFT_MAIN_QUANTITY, strOutput);
+#endif
+
+			//
+			tAngleToPulseValue = static_cast<int>(0.4*pGamePlatformDlg->m_sAircraftPanel.fCylinderHeadTemperature + (-80))*5;
+			if (0 > tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 0;
+			}
+			else if (500 < tAngleToPulseValue)
+			{
+				tAngleToPulseValue = 500;
+			}
+			pGamePlatformDlg->m_sDataToExpansion.nCylinderHeadTemperature = tAngleToPulseValue;//static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fCylinderHeadTemperature * 90 / 19);
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fCylinderHeadTemperature);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_CYLINDER_HEAD_TEMPERATURE, strOutput);
+#endif
+			//CarburetorTemperature 先用于高度，因为之前暂定不用高度表，因此将高度值用于roll的值传送给下位机
+			tAngleToPulseValue = static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fAltimeter/10*62);
+			pGamePlatformDlg->m_sDataToExpansion.nCarburetorTemperature = tAngleToPulseValue;
+			//pGamePlatformDlg->m_sDataToExpansion.nCarburetorTemperature = static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fCarburetorTemperature+45);//温度单位的转换
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fCarburetorTemperature);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_CARBURETOR_TEMPERATURE, strOutput);
+#endif
+			pGamePlatformDlg->m_sDataToExpansion.nAirTemperature = static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fAirTemperature);
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAirTemperature);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_AMBIENT_TEMPERATURE, strOutput);
+#endif
+		}
 			break;
-			case REQUEST_PANEL:
+		case REQUEST_LIGHTS_SWITCHS:
+		{
+			ObjectID1 = pObjData->dwObjectID;
+			memcpy(&pGamePlatformDlg->m_sLightsAndSwitchs, &pObjData->dwData, sizeof(FSX_LightsAndSwitchs));
+			CString strOutput;
+
+			if (90 >= pGamePlatformDlg->m_sAircraftPanel.uiRotorRPM)
 			{
-				ObjectID1 = pObjData->dwObjectID;
-				memcpy(&pGamePlatformDlg->m_sAircraftPanel, &pObjData->dwData, sizeof(FSX_Panel));
-				pGamePlatformDlg->m_psAircraftPanel = (FSX_Panel *)&pObjData->dwData;
-
-				int tAngleToPulseValue=0;								//临时记录用角度值
-
-				CString strOutput;
-
-				pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed = pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed * 0.6;
-				tAngleToPulseValue = static_cast<int>((-0.0001441*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 5)) + 3.872e-05*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 4) \
-					+ 0.08375*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 3) + (-0.007153*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 2)) \
-					+ 4.929*pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed + 353.8);
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (700 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 700;
-				}
-				pGamePlatformDlg->m_sDataToExpansion.nVerticalSpeed = tAngleToPulseValue;
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_VERTICAL_SPEED, strOutput);
-				//PITCH
-				tAngleToPulseValue = static_cast<int>(12.35 * pGamePlatformDlg->m_sAttitude.PitchDegrees - 420);
-				if (-100 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = -100;
-				}
-				else if (-450 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = -450;
-				}
-				pGamePlatformDlg->m_sDataToExpansion.nPitch = tAngleToPulseValue;
-				//空速
-				tAngleToPulseValue = static_cast<int>(6 * pGamePlatformDlg->m_sAircraftPanel.fAirSpeed + (-120));
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (600 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 600;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nAirSpeed = tAngleToPulseValue;
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAirSpeed);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_AIRSPEED_INDICATED, strOutput);
-
-				//转速
-				tAngleToPulseValue = static_cast<int>(-3.302*pGamePlatformDlg->m_sAircraftPanel.uiRotorRPM + 130.4);
-				if (0 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (-260 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = -260;
-				}
-				pGamePlatformDlg->m_sDataToExpansion.nEngineRPM = tAngleToPulseValue;
-
-				strOutput.Format(_T("%d"), pGamePlatformDlg->m_sAircraftPanel.uiEngineRPM);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_RPM, strOutput);
-
-				//转速
-				tAngleToPulseValue = static_cast<int>(3.333*pGamePlatformDlg->m_sAircraftPanel.uiRotorRPM - 100);
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (290 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 290;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nRotorRPM = tAngleToPulseValue;
-
-				strOutput.Format(_T("%d"), pGamePlatformDlg->m_sAircraftPanel.nCollectivePosition/*uiRotorRPM*/);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ENG_ROTOR_RPM, strOutput);
-
-				//高度   as roll
-				tAngleToPulseValue = static_cast<int>(10.72*pGamePlatformDlg->m_sAttitude.BankDegrees + 560);
-				/*if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (1525 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 1525;
-				}*/
-				//还需要做其他运算处理
-				pGamePlatformDlg->m_sDataToExpansion.nAltimeter = tAngleToPulseValue;
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAltimeter);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ALTITUDE, strOutput);
-				
-				//罗盘
-				tAngleToPulseValue = static_cast<int>(-2 * pGamePlatformDlg->m_sAircraftPanel.fCompass + 360);
-
-				pGamePlatformDlg->m_sDataToExpansion.nCompass = tAngleToPulseValue;
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fCompass);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_MAGNETIC_COMPASS, strOutput);
-				
-				//进气压力表
-				tAngleToPulseValue = static_cast<int>(14.31*pGamePlatformDlg->m_sAircraftPanel.fManifoldPressure + (-28.81));
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (400 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 400;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nManifoldPressure = tAngleToPulseValue;
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fManifoldPressure);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_MANIFOLD_PRESSURE, strOutput);
-
-				//电流表
-				tAngleToPulseValue = static_cast<int>(0.7188*pGamePlatformDlg->m_sAircraftPanel.fAmmeter + 79.08);
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (130 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 130;
-				}
-				pGamePlatformDlg->m_sDataToExpansion.nAmmeter = tAngleToPulseValue;
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAmmeter);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ELECTRICAL_GENALT_BUS_AMPS, strOutput);
-				//机油压力表
-				tAngleToPulseValue = static_cast<int>(2.5*pGamePlatformDlg->m_sAircraftPanel.fOilPressure + 312.5)*2*1.5;
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (1400 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 1400;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nOilPressure = tAngleToPulseValue;
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fOilPressure);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_OIL_PRESSURE, strOutput);
-
-				//副油箱
-				tAngleToPulseValue = static_cast<int>(1.2*pGamePlatformDlg->m_sAircraftPanel.fMainFuelQuantity + (-1.953e-14))*5;
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (120 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 120;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nAuxFuelQuantity = tAngleToPulseValue;
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAuxFuelQuantity);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_FUEL_TANK_LEFT_AUX_QUANTITY, strOutput);
-
-				//机油温度表
-				tAngleToPulseValue = static_cast<int>(1.294*pGamePlatformDlg->m_sAircraftPanel.fOilTemperature + (-67.06));
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (245 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 245;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nOilTemperature = tAngleToPulseValue;
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fOilTemperature);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ENG_OIL_TEMPERATURE, strOutput);
-
-				//主油箱
-				tAngleToPulseValue = static_cast<int>(1.2*pGamePlatformDlg->m_sAircraftPanel.fMainFuelQuantity + (-1.953e-14))*5;
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (120 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 120;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.nMainFuelQuantity = tAngleToPulseValue;
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fMainFuelQuantity);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_FUEL_TANK_LEFT_MAIN_QUANTITY, strOutput);
-
-				//
-				tAngleToPulseValue = static_cast<int>(0.4*pGamePlatformDlg->m_sAircraftPanel.fCylinderHeadTemperature + (-80))*5;
-				if (0 > tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 0;
-				}
-				else if (500 < tAngleToPulseValue)
-				{
-					tAngleToPulseValue = 500;
-				}
-				pGamePlatformDlg->m_sDataToExpansion.nCylinderHeadTemperature = tAngleToPulseValue;//static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fCylinderHeadTemperature * 90 / 19);
-				
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fCylinderHeadTemperature);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_CYLINDER_HEAD_TEMPERATURE, strOutput);
-
-				//CarburetorTemperature 先用于高度，因为之前暂定不用高度表，因此将高度值用于roll的值传送给下位机
-				tAngleToPulseValue = static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fAltimeter/10*62);
-				pGamePlatformDlg->m_sDataToExpansion.nCarburetorTemperature = tAngleToPulseValue;
-				//pGamePlatformDlg->m_sDataToExpansion.nCarburetorTemperature = static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fCarburetorTemperature+45);//温度单位的转换
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fCarburetorTemperature);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_CARBURETOR_TEMPERATURE, strOutput);
-
-				pGamePlatformDlg->m_sDataToExpansion.nAirTemperature = static_cast<int>(pGamePlatformDlg->m_sAircraftPanel.fAirTemperature);
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sAircraftPanel.fAirTemperature);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_AMBIENT_TEMPERATURE, strOutput);
+				pGamePlatformDlg->m_sLightsAndSwitchs.nLowRPM = 1;
 			}
-				break;
-			case REQUEST_LIGHTS_SWITCHS:
+			else
 			{
-				ObjectID1 = pObjData->dwObjectID;
-				memcpy(&pGamePlatformDlg->m_sLightsAndSwitchs, &pObjData->dwData, sizeof(FSX_LightsAndSwitchs));
-				CString strOutput;
-
-				if (90 >= pGamePlatformDlg->m_sAircraftPanel.uiRotorRPM)
-				{
-					pGamePlatformDlg->m_sLightsAndSwitchs.nLowRPM = 1;
-				}
-				else
-				{
-					pGamePlatformDlg->m_sLightsAndSwitchs.nLowRPM = 0;
-				}
-
-				if ((pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineRightMagneto != 1) && \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineLeftMagneto != 1))
-				{
-					pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn = 1;
-				}
-				else
-				{
-					pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn = 0;
-				}
-
-				pGamePlatformDlg->m_sDataToExpansion.uiLightsFlag = (pGamePlatformDlg->m_sLightsAndSwitchs.nPanelLights << 17) | (pGamePlatformDlg->m_sLightsAndSwitchs.nFuelValveSwitch << 16) | \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.nLandingLightsSwitch << 15) | (pGamePlatformDlg->m_sLightsAndSwitchs.nCarburetorHeatSwitch << 14) | \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nTurbEngineIgnitionSwitch << 13) | \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineRightMagneto << 12) | \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.nNAV_LTS << 11) | \
-					/*(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nRotorGoverner << 10) |*/ \
-					/*(pGamePlatformDlg->m_sLightsAndSwitchs.nLowOilPressure << 9) | *//*(pGamePlatformDlg->m_sLightsAndSwitchs.nAlternatorLight << 8) |*/ \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.nLowRPM << 7) |/* (pGamePlatformDlg->m_sLightsAndSwitchs.nLowFuel << 6) |*/ \
-					/*((pGamePlatformDlg->m_sLightsAndSwitchs.nTR_Chip) << 5) | */(pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn << 4) | \
-					(pGamePlatformDlg->m_sLightsAndSwitchs.nRotorBrake<<3)|/*(pGamePlatformDlg->m_sLightsAndSwitchs.nMR_Chip << 2) |*/ \
-					/*(pGamePlatformDlg->m_sLightsAndSwitchs.nMR_Temp << 1) | */(pGamePlatformDlg->m_sLightsAndSwitchs.nRotorClutch << 0);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nRotorClutch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_CLUTCH_STATE, strOutput);
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sLightsAndSwitchs.nMR_Chip);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_CHIP_LIGHT, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nRotorBrake);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_BRAKE_SWITCH, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_STARTER_ACTIVE, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nRotorGoverner);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_GOV_ACTIVE, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nNAV_LTS);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_LIGHT_NAV, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nStrobe);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_STROBES_AVAILABLE, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nAlternatorSwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_GENERATOR_ACTIVE, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nMasterBatterySwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ELECTRICAL_MASTER_BATTERY, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nMasterIgnitionSwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_MASTER_IGNITION_SWITCH, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineLeftMagneto);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_LEFT_MAGNETO, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineRightMagneto);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_RIGHT_MAGNETO, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nTurbEngineIgnitionSwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_TURB_ENG_IGNITION_SWITCH, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nCarburetorHeatSwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_CARB_HEAT_AVAILABLE, strOutput);
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sLightsAndSwitchs.fRotorTrim);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_LATERAL_TRIM_PCT, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nLandingLightsSwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_LIGHT_LANDING, strOutput);
-
-				strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sLightsAndSwitchs.fMixtureControl);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_MIXTURE_RATIO, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nFuelValveSwitch);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_FUEL_VALVE, strOutput);
-
-				strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nPanelLights);
-				pGamePlatformDlg->SetDlgItemText(IDC_SHOW_LIGHT_PANEL, strOutput);
+				pGamePlatformDlg->m_sLightsAndSwitchs.nLowRPM = 0;
 			}
-				break;
+
+			if ((pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineRightMagneto != 1) && \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineLeftMagneto != 1))
+			{
+				pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn = 1;
+			}
+			else
+			{
+				pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn = 0;
+			}
+
+			pGamePlatformDlg->m_sDataToExpansion.uiLightsFlag = (pGamePlatformDlg->m_sLightsAndSwitchs.nPanelLights << 17) | (pGamePlatformDlg->m_sLightsAndSwitchs.nFuelValveSwitch << 16) | \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.nLandingLightsSwitch << 15) | (pGamePlatformDlg->m_sLightsAndSwitchs.nCarburetorHeatSwitch << 14) | \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nTurbEngineIgnitionSwitch << 13) | \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineRightMagneto << 12) | \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.nNAV_LTS << 11) | \
+				/*(pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nRotorGoverner << 10) |*/ \
+				/*(pGamePlatformDlg->m_sLightsAndSwitchs.nLowOilPressure << 9) | *//*(pGamePlatformDlg->m_sLightsAndSwitchs.nAlternatorLight << 8) |*/ \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.nLowRPM << 7) |/* (pGamePlatformDlg->m_sLightsAndSwitchs.nLowFuel << 6) |*/ \
+				/*((pGamePlatformDlg->m_sLightsAndSwitchs.nTR_Chip) << 5) | */(pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn << 4) | \
+				(pGamePlatformDlg->m_sLightsAndSwitchs.nRotorBrake<<3)|/*(pGamePlatformDlg->m_sLightsAndSwitchs.nMR_Chip << 2) |*/ \
+				/*(pGamePlatformDlg->m_sLightsAndSwitchs.nMR_Temp << 1) | */(pGamePlatformDlg->m_sLightsAndSwitchs.nRotorClutch << 0);
+#ifdef SHOW_DLG
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nRotorClutch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_CLUTCH_STATE, strOutput);
+
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sLightsAndSwitchs.nMR_Chip);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_CHIP_LIGHT, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nRotorBrake);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_BRAKE_SWITCH, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nStartOn);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_STARTER_ACTIVE, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nRotorGoverner);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_GOV_ACTIVE, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nNAV_LTS);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_LIGHT_NAV, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nStrobe);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_STROBES_AVAILABLE, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nAlternatorSwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_GENERATOR_ACTIVE, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nMasterBatterySwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ELECTRICAL_MASTER_BATTERY, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nMasterIgnitionSwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_MASTER_IGNITION_SWITCH, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineLeftMagneto);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_LEFT_MAGNETO, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nEngineRightMagneto);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_ENG_RIGHT_MAGNETO, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.sIgnitionAndMagnetorsSwitch.nTurbEngineIgnitionSwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_TURB_ENG_IGNITION_SWITCH, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nCarburetorHeatSwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_CARB_HEAT_AVAILABLE, strOutput);
+
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sLightsAndSwitchs.fRotorTrim);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ROTOR_LATERAL_TRIM_PCT, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nLandingLightsSwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_LIGHT_LANDING, strOutput);
+
+			strOutput.Format(_T("%4f"), pGamePlatformDlg->m_sLightsAndSwitchs.fMixtureControl);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_RECIP_MIXTURE_RATIO, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nFuelValveSwitch);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_GENERAL_ENG_FUEL_VALVE, strOutput);
+
+			strOutput.Format(_T("%4d"), pGamePlatformDlg->m_sLightsAndSwitchs.nPanelLights);
+			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_LIGHT_PANEL, strOutput);
+#endif
 		}
 			break;
 		default:
@@ -1266,47 +1252,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		if ((0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("P3D"))) && (NULL != ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3"))) && (TRUE == pGamePlatformDlg->m_bSimConnectSuccessFlag))
 		{
-			int t_nRet = 0;
-			DataToHost tsReturnedDataFromExpansion;
-
 			pGamePlatformDlg->P3D_DataProcess();
-			t_nRet=pGamePlatformDlg->m_ConnectToExpansion.ReceiveFrom(&tsReturnedDataFromExpansion, sizeof(tsReturnedDataFromExpansion), CString(pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, 0);
-			if (sizeof(DataToHost) == t_nRet)
-			{
-				memcpy(&(pGamePlatformDlg->m_sReturnedDataFromExpansion), &tsReturnedDataFromExpansion, sizeof(DataToHost));
-				pGamePlatformDlg->P3D_ExternalControlDataProcess(pGamePlatformDlg->m_sReturnedDataFromExpansion);
-
-				/*CHAR t_debugmessage[128];
-				sprintf_s(t_debugmessage, "tsReturnedDataFromExpansion.nRev0 = %d\r\n", tsReturnedDataFromExpansion.nRev0);
-				OutputDebugStringA(t_debugmessage);
-
-				sprintf_s(t_debugmessage, "tsReturnedDataFromExpansion.nRev1 = %d\r\n", tsReturnedDataFromExpansion.nRev1);
-				OutputDebugStringA(t_debugmessage);
-
-				sprintf_s(t_debugmessage, "tsReturnedDataFromExpansion.attitude[0] = %f\r\n", tsReturnedDataFromExpansion.attitude[0]);
-				OutputDebugStringA(t_debugmessage);*/
-			}
-			//pGamePlatformDlg->m_sDataToExpansion.uiLightsFlag = 0xF0F0F0F0;			//TEST LIGHTS
-			if (4 == pGamePlatformDlg->m_FnvalTiming)
-			{
-#ifdef USE_EXTERNAL_CONTROL
-				if (2< (pGamePlatformDlg->m_sP3D_Para.sOtherControl.nCollectivePosition - pGamePlatformDlg->m_sAircraftPanel.nCollectivePosition))				//Destination-Current
-				{
-					PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYDOWN, VK_F3, 0);
-					PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYUP, VK_F3, 0);
-				}
-				else if (-2 > (pGamePlatformDlg->m_sP3D_Para.sOtherControl.nCollectivePosition - pGamePlatformDlg->m_sAircraftPanel.nCollectivePosition))		//Destination-Current
-				{
-					PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYDOWN, VK_F2, 0);
-					PostMessage(::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")), WM_SYSKEYUP, VK_F2, 0);
-				}
-
-				SimConnect_SetDataOnSimObject(pGamePlatformDlg->m_hSimConnect, DEFINITION_THROTTLE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_ThrottleControl), &pGamePlatformDlg->m_sP3D_Para.sThrottles);
-				SimConnect_SetDataOnSimObject(pGamePlatformDlg->m_hSimConnect, DEFINITION_RUDDER, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_RudderControl), &pGamePlatformDlg->m_sP3D_Para.sRudder);
-#endif
-			}
-
-			pGamePlatformDlg->m_ConnectToExpansion.SendTo(&(pGamePlatformDlg->m_sDataToExpansion), sizeof(pGamePlatformDlg->m_sDataToExpansion), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 		}
 		else if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))
 		{

@@ -55,7 +55,7 @@ static enum P3D_DataDefineID {
 	DEFINITION_RUDDER,
 	DEFINITION_AILERON,
 
-	DEFINITION_ATTITUDE,					//PITCH ROLL(BANK) YAW(HEADING)    aircraft  DEGREES
+	//DEFINITION_ATTITUDE,					//PITCH ROLL(BANK) YAW(HEADING)    aircraft  DEGREES
 	DEFINITION_ACC,							//aircraft  acc
 
 	DEFINITION_PANEL,						//Panel data
@@ -73,7 +73,7 @@ static enum P3D_DataRequestID {
 	REQUEST_RUDDER,
 	REQUEST_AILERON,
 
-	REQUEST_ATTITUDE,					//PITCH ROLL(BANK) YAW(HEADING)//aircraft	rotation
+	//REQUEST_ATTITUDE,					//PITCH ROLL(BANK) YAW(HEADING)//aircraft	rotation
 	REQUEST_ACC,						//aircraft  acc
 
 	REQUEST_PANEL,
@@ -189,7 +189,7 @@ struct FSX_LightsAndSwitchs
 struct FSX_Panel
 {
 	float	fVerticalSpeed;												//VERT SPEED INDICATOR,升降速度表					VERTICAL SPEED								Feet per second
-	//P3D_Attitude sAttitude;
+	P3D_Attitude sAttitude;
 	float	fAirSpeed;													//AIRSPEED INDICATED,空速表							AIRSPEED INDICATED							Knots
 	UINT	uiEngineRPM;												//ENGINE TACK,发动机转速表							GENERAL ENG RPM:index						Rpm
 	UINT	uiRotorRPM;													//ROTOR TACK,旋翼转速表								ENG ROTOR RPM:index							Percent scalar 16K (Max rpm * 16384)
@@ -360,8 +360,8 @@ public:
 	
 
 	CConnectToController ConnectToController;							//connect to master control board
-	CConnectToAttitudeSource ConnectToAttitudeSource;							//connect to simtools software/P3D game software/other
-	CMT_AsyncSocket	m_ConnectToExpansion;						//Connect to second master control board for instrument panel
+	CConnectToAttitudeSource ConnectToAttitudeSource;					//connect to simtools software/P3D game software/other
+	CMT_AsyncSocket	m_ConnectToExpansion;								//Connect to second master control board for instrument panel
 
 	CSpecialFunctions SpecialFunctions;									//some functions
 
@@ -419,7 +419,7 @@ public:
 public:																	//P3D use parameter.
 	FSX_Panel				m_sAircraftPanel;
 	FSX_LightsAndSwitchs	m_sLightsAndSwitchs;
-	FSX_Panel				*m_psAircraftPanel;
+	//FSX_Panel				*m_psAircraftPanel;
 	P3D_Parameter			m_sP3D_Para;
 	CWinThread				*m_pThreadForSimConnect;
 	BOOL					m_bThreadEnableForSimConnect;
@@ -433,8 +433,8 @@ public:																	//P3D use parameter.
 	FLOAT					m_faRollCoefs[4];
 	FLOAT					m_faYawCoefs[4];
 	INT						m_FnvalTiming;
-	P3D_Attitude			m_sAttitude;
-	P3D_Attitude			*psAttitude;
+	//P3D_Attitude			m_sAttitude;
+	//P3D_Attitude			*psAttitude;
 	float					m_fPreHead_w[5];
 
 	DataToHost				m_sReturnedDataFromExpansion;

@@ -7,9 +7,9 @@ public:
 	CMT_AsyncSocket();
 	~CMT_AsyncSocket();
 	bool m_WarrantFlag;
-
+	void *UserObject;
 	int AsyncSocketInit(unsigned int nSocketPort = 0, int nSocketType = SOCK_STREAM, long lEvent = FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, LPCTSTR lpszSocketAddress = NULL);
-	void (*UserOnReceive)(int nErrorCode);
+	void(*UserOnReceive)(LPVOID pParam, int nErrorCode);
 
 	void ErrorWarnOfCreate(int nErrorCode);
 	void ErrorWarnOfListen(int nErrorCode);

@@ -5,6 +5,7 @@
 CMT_AsyncSocket::CMT_AsyncSocket()
 {
 	m_WarrantFlag = FALSE;
+	UserObject = NULL;
 	UserOnReceive = NULL;
 }
 
@@ -33,7 +34,10 @@ void CMT_AsyncSocket::OnReceive(int nErrorCode)
 {
 	if (NULL != UserOnReceive)
 	{
-		(*UserOnReceive)(nErrorCode);
+		if (NULL != UserObject)
+		{
+			UserOnReceive(UserObject, nErrorCode);
+		}
 	}
 	CAsyncSocket::OnReceive(nErrorCode);
 }
