@@ -488,4 +488,7 @@ protected:
 public:
 	afx_msg void OnRcancel();
 	afx_msg BOOL OnQueryEndSession();
+	afx_msg void OnShowDlg();
+	afx_msg void OnToMiddle();
+	afx_msg void OnToBottom();
 };

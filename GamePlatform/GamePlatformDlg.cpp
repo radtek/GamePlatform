@@ -159,6 +159,9 @@ BEGIN_MESSAGE_MAP(CGamePlatformDlg, CDialogEx)
 	ON_MESSAGE(WM_USER_TRAYICON_NOTIFY, &CGamePlatformDlg::OnMouseOnTrayicon)
 	ON_COMMAND(IDRCANCEL, &CGamePlatformDlg::OnRcancel)
 	ON_WM_QUERYENDSESSION()
+	ON_COMMAND(ID_SHOW_DLG, &CGamePlatformDlg::OnShowDlg)
+	ON_COMMAND(ID_TO_MIDDLE, &CGamePlatformDlg::OnToMiddle)
+	ON_COMMAND(ID_TO_BOTTOM, &CGamePlatformDlg::OnToBottom)
 END_MESSAGE_MAP()
 
 
@@ -1434,7 +1437,7 @@ void CGamePlatformDlg::OnBnClickedOk()
 	// TODO: Add your control notification handler code here
 	GamesCheckAndPrepare(m_sConfigParameterList.tcaGameName);
 
-	CDialogEx::OnOK();
+	//CDialogEx::OnOK();
 }
 
 
@@ -1567,4 +1570,25 @@ BOOL CGamePlatformDlg::OnQueryEndSession()
 	// TODO:  Add your specialized query end session code here
 	ConnectToController.DOF_ToBottom();
 	return TRUE;
+}
+
+
+void CGamePlatformDlg::OnShowDlg()
+{
+	// TODO:  在此添加命令处理程序代码
+	ShowWindow(SW_SHOW);
+}
+
+
+void CGamePlatformDlg::OnToMiddle()
+{
+	// TODO:  在此添加命令处理程序代码
+	ConnectToController.DOF_ToMedian();
+}
+
+
+void CGamePlatformDlg::OnToBottom()
+{
+	// TODO:  在此添加命令处理程序代码
+	ConnectToController.DOF_ToBottom();
 }

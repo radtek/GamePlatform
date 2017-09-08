@@ -145,6 +145,7 @@
     <Image Include="C:\Users\Liu\Desktop\M.ico" />
     <Image Include="res\GamePlatform.ico" />
     <Image Include="res\icon1.ico" />
+    <Image Include="res\M.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
