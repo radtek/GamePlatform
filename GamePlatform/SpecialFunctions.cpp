@@ -28,8 +28,8 @@ INT CSpecialFunctions::GetIntDataFromConfigFile(LPCTSTR lpAppName, LPCTSTR lpKey
 	szIniPath += "\\";
 
 	szIniPath += lpFileName;
-
-	return GetPrivateProfileInt(lpAppName, lpKeyName, nDefault, lpFileName);
+	
+	return GetPrivateProfileInt(lpAppName, lpKeyName, nDefault, szIniPath);;
 }
 
 DWORD CSpecialFunctions::GetStringFromConfigFile(

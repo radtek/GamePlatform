@@ -227,7 +227,7 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	//External Device
 	m_CConnectToExternalDevice.UserOnReceive = OnReceiveForExternalDevice;
 	m_CConnectToExternalDevice.UserObject = this;
-	m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.0.131"));
+	m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.1.101"));
 
 	//Sleep(2000);
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
@@ -380,12 +380,13 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 
 	m_sConfigParameterList.bExternalControlEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("EXTERNAL_CONTROL_ENABLE"), 0, lpFileName);
 
-	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 0, lpFileName)/100.0f;
-	m_sConfigParameterList.fK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 0, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 0, lpFileName) / 100.0f;
+
+	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 1, lpFileName) / 100.0f;
 
 	m_sConfigParameterList.fK1_Surge = 0.12f;
 	m_sConfigParameterList.fK1_Sway = 0.1f;
@@ -575,10 +576,10 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 		m_CConnectToLocalSoft.UserObject = this;
 		m_CConnectToLocalSoft.AsyncSocketInit(m_sConfigParameterList.nPortForSoftware, SOCK_DGRAM, 63L, m_sConfigParameterList.tcaLocalIP);
 
-		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
-		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameEngine.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
+		/*ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
+		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameEngine.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);*/
 		Sleep(5000);
-		if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+		/*if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
 		{
 			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), m_sConfigParameterList.tcaGameFolderPath, SW_SHOWMINIMIZED);
 			if (ret <= (HINSTANCE)32)
@@ -597,7 +598,7 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 				AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
 				exit(-1);
 			}
-		}
+		}*/
 		Sleep(3000);
 	}
 	else
@@ -816,10 +817,10 @@ int CGamePlatformDlg::DIRT3_DataProcess()
 	{
 	}
 	char t_buffer[128];
-	sprintf_s(t_buffer, sizeof(t_buffer), "%f#%f#%f#%f#%f#%f#%f#%f#", &m_sConfigParameterList.fK_Pitch, &m_sConfigParameterList.fK_Roll, \
-		&m_sConfigParameterList.fK_Yaw, &m_sConfigParameterList.fK_Surge, &m_sConfigParameterList.fK_Sway, \
-		&m_sConfigParameterList.fK_Heave, &m_sConfigParameterList.fK1_Surge, &m_sConfigParameterList.fK1_Sway);
-	m_CConnectToLocalSoft.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
+	sprintf_s(t_buffer, sizeof(t_buffer), "%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#", m_sConfigParameterList.fK_Pitch, m_sConfigParameterList.fK_Roll, \
+		m_sConfigParameterList.fK_Yaw, m_sConfigParameterList.fK_Surge, m_sConfigParameterList.fK_Sway, \
+		m_sConfigParameterList.fK_Heave, m_sConfigParameterList.fK1_Surge, m_sConfigParameterList.fK1_Sway);
+	m_CConnectToExternalDevice.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
 	return 0;
 }
 void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
@@ -887,7 +888,7 @@ void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
 		pGamePlatformDlg->m_csRemoteIP, pGamePlatformDlg->m_nRemotePort, 0);
 	if (SOCKET_ERROR == t_nRet)
 	{
-		pGamePlatformDlg->m_CConnectToExternalDevice.ErrorWarnOfReceiveFrom(GetLastError());
+		//pGamePlatformDlg->m_CConnectToExternalDevice.ErrorWarnOfReceiveFrom(GetLastError());
 	}
 	else
 	{
@@ -1401,13 +1402,9 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		{
 			pGamePlatformDlg->P3D_DataProcess();
 		}
-		else if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))
+		else /*if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))*/
 		{
 			pGamePlatformDlg->DIRT3_DataProcess();
-		}
-		else
-		{
-			//other
 		}
 	}
 	else
