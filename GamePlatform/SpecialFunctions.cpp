@@ -152,8 +152,8 @@ float	CSpecialFunctions::LimitVelAndACC(MotionParaList *tspMotionParaList)
 	float tfCurVel=0.0f;							//current velocity
 	float tfPreVel=0.0f;							//the last velocity
 	float tfCurAcc=0.0f;							//current acceleration
-	float tfKpVel=0.95;
-	float tfKpAcc = 0.7;
+	float tfKpVel=0.95f;
+	float tfKpAcc = 0.7f;
 	tfCurVel = tspMotionParaList->fDesPos - tspMotionParaList->fPrePos;
 	tfPreVel = tspMotionParaList->fPrePos - tspMotionParaList->fPrePrePos;
 	tfCurAcc = tfCurVel - tfPreVel;
@@ -179,11 +179,11 @@ float	CSpecialFunctions::LimitVelAndACC(MotionParaList *tspMotionParaList)
 	}*/
 	if (tspMotionParaList->fMaxAngularAcc <= tfCurAcc)
 	{
-		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos + tspMotionParaList->fMaxAngularAcc / 10.0;
+		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos + tspMotionParaList->fMaxAngularAcc / 10.0f;
 	}
 	else if (-tspMotionParaList->fMaxAngularAcc >= tfCurAcc)
 	{
-		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos - tspMotionParaList->fMaxAngularAcc / 10.0;
+		tspMotionParaList->fDesPos = tspMotionParaList->fPrePos - tspMotionParaList->fMaxAngularAcc / 10.0f;
 	}
 	if (tspMotionParaList->fDesPos >= tspMotionParaList->fMaxDesPos)
 	{

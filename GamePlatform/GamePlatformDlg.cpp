@@ -11,8 +11,8 @@
 #include "resource.h"
 #include "Resource.h"
 
-#define		MAX_ANGULAR_VELOCITY			(0.06)
-#define		MAX_ANGULAR_ACC					(0.0)
+#define		MAX_ANGULAR_VELOCITY			(0.06f)
+#define		MAX_ANGULAR_ACC					(0.0f)
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -229,6 +229,25 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	m_CConnectToExternalDevice.UserObject = this;
 	m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.1.101"));
 
+	if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("P3D")))
+	{
+		m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
+		m_ConnectToExpansion.UserObject = this;
+		m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion, SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
+	}
+	else if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
+	{
+		//Simtools
+		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
+		m_CConnectToLocalSoft.UserObject = this;
+		m_CConnectToLocalSoft.AsyncSocketInit(5123, SOCK_DGRAM, 63L, _T("192.168.0.131"));
+	}
+	else
+	{
+		//nothing
+	}
+	
+
 	//Sleep(2000);
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
 	Sleep(2000);//wait mcu data;
@@ -381,15 +400,16 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 	m_sConfigParameterList.bExternalControlEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("EXTERNAL_CONTROL_ENABLE"), 0, lpFileName);
 
 
-	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 1, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 1, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 1, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 1, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 1, lpFileName) / 100.0f;
-	m_sConfigParameterList.fK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 1, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 1, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 1, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 1, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 1, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 1, lpFileName)/100.0f;
 
-	m_sConfigParameterList.fK1_Surge = 0.12f;
-	m_sConfigParameterList.fK1_Sway = 0.1f;
+	//Additional
+	m_sConfigParameterList.fK1_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K1_SURGE"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK1_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K1_SWAY"), 1, lpFileName) / 100.0f;
 
 	m_sConfigParameterList.bDlgEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("DLG_ENABLE"), 0, lpFileName);
 	
@@ -425,11 +445,6 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 {
 	if (0 == _tcscmp(lpName, TEXT("P3D")))
 	{
-		m_ConnectToExpansion.UserOnReceive = OnReceiveForExpansion;
-		m_ConnectToExpansion.UserObject = this;
-		m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion, SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
-
-
 		if (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
 		{
 			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
@@ -570,14 +585,11 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 		
 	}
 	else if (0 == _tcscmp(lpName, TEXT("DIRT3")))
-	{
-		//Simtools
-		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
-		m_CConnectToLocalSoft.UserObject = this;
-		m_CConnectToLocalSoft.AsyncSocketInit(m_sConfigParameterList.nPortForSoftware, SOCK_DGRAM, 63L, m_sConfigParameterList.tcaLocalIP);
-
-		/*ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
-		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameEngine.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);*/
+	{	
+		
+		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
+		Sleep(5000);
+		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameEngine.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
 		Sleep(5000);
 		/*if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
 		{
@@ -801,13 +813,13 @@ int CGamePlatformDlg::DIRT3_DataProcess()
 		ConnectToController.m_sToDOFBuf.nCheckID = 55;
 		ConnectToController.m_sToDOFBuf.nCmd = 0;
 
-		ConnectToController.m_sToDOFBuf.DOFs[3] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Sway - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Sway;
-		ConnectToController.m_sToDOFBuf.DOFs[4] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Surge - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Surge;
-		ConnectToController.m_sToDOFBuf.DOFs[5] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Heave - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Heave;
-		ConnectToController.m_sToDOFBuf.DOFs[0] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Roll - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Roll \
-			+ ConnectToController.m_sToDOFBuf.DOFs[3] * m_sConfigParameterList.fK1_Sway;
-		ConnectToController.m_sToDOFBuf.DOFs[1] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Pitch - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Pitch \
-			+ ConnectToController.m_sToDOFBuf.DOFs[4] * m_sConfigParameterList.fK1_Surge;
+		ConnectToController.m_sToDOFBuf.DOFs[3] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Sway - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Sway*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[4] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Surge - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Surge*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[5] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Heave - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Heave*10.0f*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Roll - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Roll*100.0f \
+			+ ConnectToController.m_sToDOFBuf.DOFs[3] * m_sConfigParameterList.fK1_Sway*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[0] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Pitch - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Pitch*100.0f \
+			+ ConnectToController.m_sToDOFBuf.DOFs[4] * m_sConfigParameterList.fK1_Surge*100.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[2] = 0;//(static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Yaw - 0x7FFF)) / 10000)			* m_sConfigParameterList.nK_Yaw;
 		
 
