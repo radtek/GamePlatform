@@ -825,7 +825,6 @@ int CGamePlatformDlg::DIRT3_DataProcess()
 		ConnectToController.m_sToDOFBuf.DOFs[0] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Pitch - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Pitch*100.0f \
 			+ ConnectToController.m_sToDOFBuf.DOFs[4] * m_sConfigParameterList.fK1_Surge*100.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[2] = 0;//(static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Yaw - 0x7FFF)) / 10000)			* m_sConfigParameterList.nK_Yaw;
-		
 
 		ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf), sizeof(ConnectToController.m_sToDOFBuf), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
 	}
