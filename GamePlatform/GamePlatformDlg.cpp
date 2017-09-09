@@ -1557,7 +1557,8 @@ afx_msg LRESULT CGamePlatformDlg::OnMouseOnTrayicon(WPARAM wParam, LPARAM lParam
 
 void CGamePlatformDlg::OnRcancel()
 {
-	// TODO:  在此添加命令处理程序代码
+	// TODO:  Add your specialized query end session code here
+	m_bGameStartedFlag = FALSE;
 	ConnectToController.DOF_ToMedian();
 	exit(0);
 }
@@ -1567,8 +1568,8 @@ BOOL CGamePlatformDlg::OnQueryEndSession()
 {
 	if (!CDialogEx::OnQueryEndSession())
 		return FALSE;
-	m_bGameStartedFlag = 0;
 	// TODO:  Add your specialized query end session code here
+	m_bGameStartedFlag = FALSE;
 	ConnectToController.DOF_ToBottom();
 	return TRUE;
 }
@@ -1576,31 +1577,45 @@ BOOL CGamePlatformDlg::OnQueryEndSession()
 
 void CGamePlatformDlg::OnShowDlg()
 {
-	// TODO:  在此添加命令处理程序代码
+	// TODO:  Add your specialized query end session code here
 	ShowWindow(SW_SHOW);
 }
 
 
 void CGamePlatformDlg::OnToMiddle()
 {
-	// TODO:  在此添加命令处理程序代码
-	ConnectToController.DOF_ToMedian();
+	// TODO:  Add your specialized query end session code here
+	if (dof_check_id == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
+	{
+		ConnectToController.DOF_UpToMedian();
+		ConnectToController.DOF_ToMedian();
+		m_bGameStartedFlag = TRUE;
+	}
+	else if (dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
+	{
+		m_bGameStartedFlag = FALSE;
+		ConnectToController.DOF_ToMedian();
+	}
+	else if (dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
+	{
+		m_bGameStartedFlag = TRUE;
+	}
 }
 
 
 void CGamePlatformDlg::OnToBottom()
 {
-	// TODO:  在此添加命令处理程序代码
-	m_bGameStartedFlag = 0;
+	// TODO:  Add your specialized query end session code here
+	m_bGameStartedFlag = FALSE;
 	ConnectToController.DOF_ToBottom();
-	exit(-1);
-	
 }
 
 
 void CGamePlatformDlg::OnEndSession(BOOL bEnding)
 {
 	CDialogEx::OnEndSession(bEnding);
-
-	// TODO:  在此处添加消息处理程序代码
+	// TODO:  Add your specialized query end session code here
+	m_bGameStartedFlag = FALSE;
+	ConnectToController.DOF_ToBottom();
+	exit(0);
 }
