@@ -385,6 +385,7 @@ public:
 	const float m_fYawVelocityMax = 0.5f;
 public:
 	const CString NameOfConfigFlie = { TEXT("Config1.ini") };
+
 	
 
 	CConnectToController ConnectToController;							//connect to master control board
@@ -448,8 +449,9 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 
-public:
-	
+public:		//LOCK
+	__time64_t m_lLastUseData;
+	CTime	m_CCurrentData;
 public:																	//P3D use parameter.
 	FSX_Panel				m_sAircraftPanel;
 	FSX_LightsAndSwitchs	m_sLightsAndSwitchs;

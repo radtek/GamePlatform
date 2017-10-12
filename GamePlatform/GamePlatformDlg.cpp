@@ -10,6 +10,8 @@
 #include "mmsystem.h"						//Timer
 #include "resource.h"
 #include "Resource.h"
+//#include "MotusLock.h"
+//#include <string>							//Compiling will product 5 errors when using it in DEBUG mode.
 
 #define		MAX_ANGULAR_VELOCITY			(0.06f)
 #define		MAX_ANGULAR_ACC					(0.0f)
@@ -26,6 +28,8 @@
 #pragma comment(lib,"SimConnect.lib") 
 #endif
 
+const CTime DeliveryData(2017, 10, 10,0,0,0);
+const CTime DeliveryEndData(2017, 10, 12, 0, 0, 0);
 
 void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
 UINT __cdecl ThreadForSimConnect(LPVOID pParam);
@@ -143,6 +147,10 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 
 	m_csRemoteIP =_T("192.168.1.110");
 	m_nRemotePort=10005;
+
+	
+	m_CCurrentData = CTime::GetCurrentTime();
+	m_lLastUseData = 0;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -221,6 +229,22 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	NotifyIconShow();
 
 	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
+
+	CTime t_CTime(m_lLastUseData);
+	if ((t_CTime > m_CCurrentData) || (t_CTime>DeliveryEndData) || (DeliveryData>m_CCurrentData))
+	{
+		AfxMessageBox(TEXT("Data Error!"));
+		exit(-1);
+	}
+	else
+	{
+		
+		m_lLastUseData = m_CCurrentData.GetTime();
+
+		CString t_CString;
+		t_CString.Format(_T("%ld"), m_lLastUseData);
+		SpecialFunctions.WriteStringToConfigFile(TEXT("GAME_PARAMETER"), TEXT("NUMBER"), t_CString, NameOfConfigFlie);
+	}
 
 	CheckProcessMutex(m_sConfigParameterList.tcaGameName);
 	//Controller
@@ -417,7 +441,7 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 
 	m_sConfigParameterList.bDlgEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("DLG_ENABLE"), 0, lpFileName);
 	
-
+	m_lLastUseData = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("NUMBER"), 1, lpFileName);
 }
 
 void CGamePlatformDlg::CheckProcessMutex(LPCTSTR lpName)
