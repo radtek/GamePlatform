@@ -14,6 +14,7 @@
 //#define  USE_EXTERNAL_CONTROL
 #define USE_DOF
 //#define SHOW_DLG
+#define MOTUS_LOCK
 
 // CGamePlatformApp:
 // See GamePlatform.cpp for the implementation of this class

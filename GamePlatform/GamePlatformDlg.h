@@ -452,7 +452,14 @@ protected:
 public:		//LOCK
 	__time64_t m_lLastUseData;
 	CTime	m_CCurrentData;
-public:																	//P3D use parameter.
+	const int		m_iIntervalForWritingFile=100*60*60*4;				//10ms*100*60*60;
+	int				m_iTimingForInterval;
+public:			//The limitation of time
+	BOOL					m_bFlagForEnablingGame;
+	UINT					m_uiTimeWhenGameWasEnabled;
+	UINT					m_uiCurrentTimeForLimitationOfTime;
+	const UINT				m_uiLimitationTimeForGame = 1000 * 60 * 4;
+public:																	//P3D use parameter
 	FSX_Panel				m_sAircraftPanel;
 	FSX_LightsAndSwitchs	m_sLightsAndSwitchs;
 	//FSX_Panel				*m_psAircraftPanel;

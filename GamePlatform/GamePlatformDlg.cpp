@@ -15,6 +15,7 @@
 
 #define		MAX_ANGULAR_VELOCITY			(0.06f)
 #define		MAX_ANGULAR_ACC					(0.0f)
+#define		LICENCE_WARN_DAYS				(3)
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -28,8 +29,8 @@
 #pragma comment(lib,"SimConnect.lib") 
 #endif
 
-const CTime DeliveryData(2017, 10, 10,0,0,0);
-const CTime DeliveryEndData(2017, 10, 12, 0, 0, 0);
+const CTime DeliveryData(2017, 10, 10, 0, 0, 0);
+const CTime DeliveryEndData(2017, 11, 15, 0, 0, 0);
 
 void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
 UINT __cdecl ThreadForSimConnect(LPVOID pParam);
@@ -151,6 +152,10 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 	
 	m_CCurrentData = CTime::GetCurrentTime();
 	m_lLastUseData = 0;
+	m_iTimingForInterval = 0;
+
+	//for limitation of time
+	m_bFlagForEnablingGame = 0;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -229,23 +234,33 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	NotifyIconShow();
 
 	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
-
+#ifdef MOTUS_LOCK
 	CTime t_CTime(m_lLastUseData);
-	if ((t_CTime > m_CCurrentData) || (t_CTime>DeliveryEndData) || (DeliveryData>m_CCurrentData))
+	if ((t_CTime > m_CCurrentData) || (DeliveryData>m_CCurrentData))
 	{
-		AfxMessageBox(TEXT("Data Error!"));
+		AfxMessageBox(TEXT("System Time Error!\r\n"));
+		exit(-1);
+	}
+	else if ((t_CTime > DeliveryEndData) || (m_CCurrentData > DeliveryEndData))
+	{
+		AfxMessageBox(TEXT("Trial license has expired\r\nContact vendors,please!"));
 		exit(-1);
 	}
 	else
 	{
-		
+		if ((DeliveryEndData.GetYear() == m_CCurrentData.GetYear()) && (DeliveryEndData.GetMonth() == m_CCurrentData.GetMonth()) && (LICENCE_WARN_DAYS >= (DeliveryEndData.GetDay() - m_CCurrentData.GetDay())))
+		{
+			CString t_CString;
+			t_CString.Format(_T("Licence will expire after %2d days!\r\nContact vendors,please!"), DeliveryEndData.GetDay() - m_CCurrentData.GetDay());
+			AfxMessageBox(t_CString);
+		}
 		m_lLastUseData = m_CCurrentData.GetTime();
 
 		CString t_CString;
 		t_CString.Format(_T("%ld"), m_lLastUseData);
 		SpecialFunctions.WriteStringToConfigFile(TEXT("GAME_PARAMETER"), TEXT("NUMBER"), t_CString, NameOfConfigFlie);
 	}
-
+#endif
 	CheckProcessMutex(m_sConfigParameterList.tcaGameName);
 	//Controller
 	_tcscpy_s(ConnectToController.m_tcaControllerIP, m_sConfigParameterList.tcaControllerIP);
@@ -495,7 +510,7 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			}
 		}
 
-		Sleep(3000);
+		Sleep(20000);
 
 
 		HRESULT hr;
@@ -1435,6 +1450,42 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 {
 	
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)dwUser;
+#ifdef MOTUS_LOCK
+	pGamePlatformDlg->m_iTimingForInterval++;
+	if (pGamePlatformDlg->m_iIntervalForWritingFile <= pGamePlatformDlg->m_iTimingForInterval)
+	{
+		pGamePlatformDlg->m_iTimingForInterval = 0;
+		pGamePlatformDlg->m_CCurrentData = CTime::GetCurrentTime();;
+		CTime t_CTime(pGamePlatformDlg->m_lLastUseData);
+		if ((t_CTime > pGamePlatformDlg->m_CCurrentData) || (DeliveryData>pGamePlatformDlg->m_CCurrentData))
+		{
+			AfxMessageBox(TEXT("System Time Error!\r\n"));
+			pGamePlatformDlg->ConnectToController.DOF_ToBottom();
+			exit(-1);
+		}
+		else if ((t_CTime > DeliveryEndData) || (pGamePlatformDlg->m_CCurrentData > DeliveryEndData))
+		{
+			AfxMessageBox(TEXT("Trial license has expired\r\nContact vendors,please!"));
+			pGamePlatformDlg->ConnectToController.DOF_ToBottom();
+			exit(-1);
+		}
+		else
+		{
+			if ((DeliveryEndData.GetYear() == pGamePlatformDlg->m_CCurrentData.GetYear()) && (DeliveryEndData.GetMonth() == pGamePlatformDlg->m_CCurrentData.GetMonth()) \
+				&& (1 >= (DeliveryEndData.GetDay() - pGamePlatformDlg->m_CCurrentData.GetDay())))
+			{
+				CString t_CString;
+				t_CString.Format(_T("Licence will expire after %2d days!\r\nContact vendors,please!"), DeliveryEndData.GetDay() - pGamePlatformDlg->m_CCurrentData.GetDay());
+				AfxMessageBox(t_CString);
+			}
+			pGamePlatformDlg->m_lLastUseData = pGamePlatformDlg->m_CCurrentData.GetTime();
+
+			CString t_CString;
+			t_CString.Format(_T("%ld"), pGamePlatformDlg->m_lLastUseData);
+			pGamePlatformDlg->SpecialFunctions.WriteStringToConfigFile(TEXT("GAME_PARAMETER"), TEXT("NUMBER"), t_CString, pGamePlatformDlg->NameOfConfigFlie);
+		}
+	}
+#endif
 	if (TRUE == pGamePlatformDlg->m_bGameStartedFlag)
 	{
 		if ((0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("P3D"))) && (NULL != ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3"))) && (TRUE == pGamePlatformDlg->m_bSimConnectSuccessFlag))
@@ -1450,6 +1501,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		//nothing
 	}
+
 	
 	
 }
