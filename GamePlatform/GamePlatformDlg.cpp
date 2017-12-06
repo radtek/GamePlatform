@@ -156,6 +156,8 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 
 	//for limitation of time
 	m_bFlagForEnablingGame = 0;
+
+	m_bGamePrepareOver = false;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -488,7 +490,7 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 {
 	if (0 == _tcscmp(lpName, TEXT("P3D")))
 	{
-		if (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
+		if (NULL == (m_oGameWND=::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3"))))
 		{
 			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
 			if (ret <= (HINSTANCE)32)
@@ -499,7 +501,7 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			Sleep(3000);
 		}
 		int t_timing = 0;
-		while (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
+		while (NULL == (m_oGameWND = ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3"))))
 		{
 			Sleep(1000);
 			t_timing++;
@@ -1019,11 +1021,13 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	pGamePlatformDlg->ConnectToController.DOF_ToRun();
 #endif
 	pGamePlatformDlg->GamesCheckAndPrepare(pGamePlatformDlg->m_sConfigParameterList.tcaGameName);
+
+	pGamePlatformDlg->m_bGamePrepareOver=true;
+#ifndef LIMIT_GAME_TIME
 	pGamePlatformDlg->m_bGameStartedFlag = TRUE;
+#endif // LIMIT_GAME_TIME
 	return 0;
 }
-
-
 
 void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pContext)
 {
@@ -1486,24 +1490,48 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		}
 	}
 #endif
-	if (TRUE == pGamePlatformDlg->m_bGameStartedFlag)
+	if (true == pGamePlatformDlg->m_bGamePrepareOver)
 	{
-		if ((0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("P3D"))) && (NULL != ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3"))) && (TRUE == pGamePlatformDlg->m_bSimConnectSuccessFlag))
+		if (true == pGamePlatformDlg->m_bGameStartedFlag)
 		{
-			pGamePlatformDlg->P3D_DataProcess();
+#ifdef LIMIT_GAME_TIME
+			if (pGamePlatformDlg->m_uiLimitationTimeForGame >= (GetTickCount()-pGamePlatformDlg->m_uiTimeWhenGameWasEnabled))
+			{
+#endif // LIMIT_GAME_TIME
+				if ((0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("P3D"))) && (NULL != ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3"))) && (TRUE == pGamePlatformDlg->m_bSimConnectSuccessFlag))
+				{
+					pGamePlatformDlg->P3D_DataProcess();
+				}
+				else /*if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))*/
+				{
+					pGamePlatformDlg->DIRT3_DataProcess();
+				}
+#ifdef LIMIT_GAME_TIME
+			}
+			else
+			{
+				pGamePlatformDlg->m_bGameStartedFlag = false;
+			}
+#endif // LIMIT_GAME_TIME	
 		}
-		else /*if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))*/
+		else
 		{
-			pGamePlatformDlg->DIRT3_DataProcess();
+#ifdef LIMIT_GAME_TIME
+			if (NULL != pGamePlatformDlg->m_oGameWND)
+			{
+				if (IDOK == MessageBox(pGamePlatformDlg->m_oGameWND, TEXT("Time OVER!\r\n"), TEXT("Game Warn"), MB_ICONWARNING | MB_OKCANCEL))
+				{
+					pGamePlatformDlg->m_uiTimeWhenGameWasEnabled = GetTickCount();
+					pGamePlatformDlg->m_bGameStartedFlag = true;
+					/*if (E_FAIL== SimConnect_FlightLoad(pGamePlatformDlg->m_hSimConnect, "C:\\Users\\Motus_03\\Documents\\Prepar3D v3 Files\\A320.fxml"))
+					{
+						MessageBox(pGamePlatformDlg->m_oGameWND, TEXT("FlightLoad Error!\r\n"), TEXT("Game Warn"), MB_ICONWARNING | MB_OKCANCEL);
+					}*/
+				}				
+			}
+#endif // LIMIT_GAME_TIME	
 		}
-	}
-	else
-	{
-		//nothing
-	}
-
-	
-	
+	}	
 }
 
 
@@ -1664,7 +1692,9 @@ void CGamePlatformDlg::OnToMiddle()
 	{
 		ConnectToController.DOF_UpToMedian();
 		ConnectToController.DOF_ToMedian();
+#ifndef LIMIT_GAME_TIME
 		m_bGameStartedFlag = TRUE;
+#endif // LIMIT_GAME_TIME
 	}
 	else if (dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
 	{
@@ -1673,7 +1703,9 @@ void CGamePlatformDlg::OnToMiddle()
 	}
 	else if (dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
 	{
+#ifndef LIMIT_GAME_TIME
 		m_bGameStartedFlag = TRUE;
+#endif // LIMIT_GAME_TIME
 	}
 }
 

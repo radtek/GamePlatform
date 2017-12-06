@@ -15,6 +15,7 @@
 #define USE_DOF
 //#define SHOW_DLG
 #define MOTUS_LOCK
+#define LIMIT_GAME_TIME
 
 // CGamePlatformApp:
 // See GamePlatform.cpp for the implementation of this class

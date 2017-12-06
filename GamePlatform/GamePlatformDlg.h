@@ -449,7 +449,7 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 
-public:		//LOCK
+public:			//LOCK
 	__time64_t m_lLastUseData;
 	CTime	m_CCurrentData;
 	const int		m_iIntervalForWritingFile=100*60*60*4;				//10ms*100*60*60;
@@ -458,8 +458,11 @@ public:			//The limitation of time
 	BOOL					m_bFlagForEnablingGame;
 	UINT					m_uiTimeWhenGameWasEnabled;
 	UINT					m_uiCurrentTimeForLimitationOfTime;
-	const UINT				m_uiLimitationTimeForGame = 1000 * 60 * 4;
-public:																	//P3D use parameter
+	const UINT				m_uiLimitationTimeForGame = 1000 * 60 * 5;
+public:			//correlated variable of games
+	bool					m_bGamePrepareOver;
+	HWND					m_oGameWND;
+public:			//P3D use parameter
 	FSX_Panel				m_sAircraftPanel;
 	FSX_LightsAndSwitchs	m_sLightsAndSwitchs;
 	//FSX_Panel				*m_psAircraftPanel;
@@ -487,14 +490,14 @@ public:																	//P3D use parameter
 	int P3D_ExternalControlDataProcess(DataToHost tsDataToHost);
 	//
 
-	//DIRT3
-public:
+	
+public:			//DIRT3
 	SimtoolsData m_sSimtoolsData;
 
-	int CGamePlatformDlg::DIRT3_DataProcess();
+	int DIRT3_DataProcess();
 protected:
 	
-public:
+public:			//Tray Menu
 	afx_msg void OnRcancel();
 	afx_msg BOOL OnQueryEndSession();
 	afx_msg void OnShowDlg();

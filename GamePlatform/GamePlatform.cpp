@@ -89,7 +89,6 @@ BOOL CGamePlatformApp::InitInstance()
 	dlg->ShowWindow(SW_HIDE);
 #endif
 	//CWinThread *t_thred = AfxBeginThread(ThreadReceiverFromController, &ConnectToController);
-	
 	BOOL bRet;
 	while ((bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
 	{
