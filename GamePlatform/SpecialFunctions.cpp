@@ -212,3 +212,10 @@ void CSpecialFunctions::CharToHex(char * pt)
 	}
 }
 
+float CSpecialFunctions::first_order_lag_filter(float input_now, float cal_pre, float k)
+{
+	if (k >= 0 && k <= 1)
+		return k * cal_pre + (1 - k)*input_now;
+	else
+		return 0.0;
+}
