@@ -10,6 +10,7 @@
 #include "mmsystem.h"						//Timer
 #include "resource.h"
 #include "Resource.h"
+#include "DataConciliation.h"
 //#include "MotusLock.h"
 //#include <string>							//Compiling will product 5 errors when using it in DEBUG mode.
 
@@ -21,7 +22,7 @@
 #endif
 
 #pragma comment(lib,"winmm.lib")
-
+#pragma comment(lib,"DataConciliation.lib")
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #pragma comment(lib,"SimConnectDebug.lib") /*SimConnectDebug.lib*/
@@ -29,8 +30,10 @@
 #pragma comment(lib,"SimConnect.lib") 
 #endif
 
+#ifdef MOTUS_LOCK
 const CTime DeliveryData(2017, 10, 10, 0, 0, 0);
 const CTime DeliveryEndData(2017, 11, 15, 0, 0, 0);
+#endif
 
 void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
 UINT __cdecl ThreadForSimConnect(LPVOID pParam);
@@ -158,6 +161,11 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 	m_bFlagForEnablingGame = 0;
 
 	m_bGamePrepareOver = false;
+	m_1msTiming = 0;
+	for (int i = 0; i < 6; i++)
+	{
+		m_AttitudeSmoothFactor[i] = 0.0f;
+	}
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -280,12 +288,18 @@ BOOL CGamePlatformDlg::OnInitDialog()
 		m_ConnectToExpansion.UserObject = this;
 		m_ConnectToExpansion.AsyncSocketInit(m_sConfigParameterList.nPortForExpansion, SOCK_DGRAM, 63L, m_sConfigParameterList.cLocalIPforExpansion);
 	}
-	else if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
+	else if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3_SIMTOOLS")))
 	{
 		//Simtools
 		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
 		m_CConnectToLocalSoft.UserObject = this;
 		m_CConnectToLocalSoft.AsyncSocketInit(5123, SOCK_DGRAM, 63L, _T("192.168.0.131"));
+	}
+	else if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
+	{
+		m_CConnectToLocalSoft.UserOnReceive = OnReceiveForSimtools;
+		m_CConnectToLocalSoft.UserObject = this;
+		m_CConnectToLocalSoft.AsyncSocketInit(4123, SOCK_DGRAM, 63L, _T("192.168.0.131"));
 	}
 	else
 	{
@@ -297,8 +311,15 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	//CWinThread *pclThreadForExpansion = AfxBeginThread(ThreadForExpansion, this);
 	Sleep(2000);//wait mcu data;
 	CWinThread *t_thread = AfxBeginThread(ThreadPrepareProcess, this);
-
-	m_uiMMTimer = ::timeSetEvent(10, 0, TimeProc, (DWORD_PTR)this, TIME_PERIODIC);
+	if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
+	{
+		m_uiMMTimer = ::timeSetEvent(1, 0, TimeProc, (DWORD_PTR)this, TIME_PERIODIC);
+	}
+	else
+	{
+		m_uiMMTimer = ::timeSetEvent(10, 0, TimeProc, (DWORD_PTR)this, TIME_PERIODIC);
+	}
+	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -629,7 +650,7 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 
 		
 	}
-	else if (0 == _tcscmp(lpName, TEXT("DIRT3")))
+	else if (0 == _tcscmp(lpName, TEXT("DIRT3_SIMTOOLS")))
 	{	
 		
 		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
@@ -657,6 +678,30 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			}
 		}*/
 		Sleep(3000);
+	}
+	else if (0 == _tcscmp(lpName, TEXT("DIRT3")))
+	{
+		/*if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+		{
+			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), m_sConfigParameterList.tcaGameFolderPath, SW_SHOWMINIMIZED);
+			if (ret <= (HINSTANCE)32)
+			{
+				AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
+				exit(-1);
+			}
+		}
+		int t_timing = 0;
+		while (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
+		{
+		Sleep(1000);
+		t_timing++;
+		if (15 <= t_timing)
+		{
+		AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
+		exit(-1);
+		}
+		}
+		Sleep(3000);*/
 	}
 	else
 	{
@@ -959,36 +1004,55 @@ void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
 
 void OnReceiveForSimtools(LPVOID pParam, int nErrorCode)
 {
-	TCHAR t_tcReceiveData[128];
-	int t_nRet = 0;
+	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 	CString t_ip;
 	UINT t_port;
-	ConfigParameterList t_sConfigParameterList;
-	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
-	s_simtools_chardata dh;
-	int i = 0;
-
-	if (sizeof(s_simtools_chardata) == pGamePlatformDlg->m_CConnectToLocalSoft.ReceiveFrom(&dh, sizeof(s_simtools_chardata),t_ip,t_port))
+	if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")))
 	{
-		//recvfrom(Socket_udp_connect_with_simtools, (char *)&dh, sizeof(s_simtools_chardata), 0, (SOCKADDR *)&simtools_Addr, &simtools_AddrSize);
-		for (i = 0; i < 4; i++)
+		if (sizeof(s_simtools_plugin_data) == pGamePlatformDlg->m_CConnectToLocalSoft.ReceiveFrom(&pGamePlatformDlg->t_game_original_data, sizeof(s_simtools_plugin_data), t_ip, t_port))
 		{
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_head_char[i]);
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_pitch_char[i]);
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_roll_char[i]);
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_sway_char[i]);
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_surge_char[i]);
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_heave_char[i]);
-			pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_yaw_char[i]);
-		}
 
-		pGamePlatformDlg->m_sSimtoolsData.Head = ((dh.simtools_data_head_char[0]) << 12) | ((dh.simtools_data_head_char[1]) << 8) | ((dh.simtools_data_head_char[2]) << 4) | ((dh.simtools_data_head_char[3]) << 0);
-		pGamePlatformDlg->m_sSimtoolsData.Pitch = ((dh.simtools_data_pitch_char[0]) << 12) | ((dh.simtools_data_pitch_char[1]) << 8) | ((dh.simtools_data_pitch_char[2]) << 4) | ((dh.simtools_data_pitch_char[3]) << 0);
-		pGamePlatformDlg->m_sSimtoolsData.Roll = ((dh.simtools_data_roll_char[0]) << 12) | ((dh.simtools_data_roll_char[1]) << 8) | ((dh.simtools_data_roll_char[2]) << 4) | ((dh.simtools_data_roll_char[3]) << 0);
-		pGamePlatformDlg->m_sSimtoolsData.Sway = ((dh.simtools_data_sway_char[0]) << 12) | ((dh.simtools_data_sway_char[1]) << 8) | ((dh.simtools_data_sway_char[2]) << 4) | ((dh.simtools_data_sway_char[3]) << 0);
-		pGamePlatformDlg->m_sSimtoolsData.Surge = ((dh.simtools_data_surge_char[0]) << 12) | ((dh.simtools_data_surge_char[1]) << 8) | ((dh.simtools_data_surge_char[2]) << 4) | ((dh.simtools_data_surge_char[3]) << 0);
-		pGamePlatformDlg->m_sSimtoolsData.Heave = ((dh.simtools_data_heave_char[0]) << 12) | ((dh.simtools_data_heave_char[1]) << 8) | ((dh.simtools_data_heave_char[2]) << 4) | ((dh.simtools_data_heave_char[3]) << 0);
-		pGamePlatformDlg->m_sSimtoolsData.Yaw = ((dh.simtools_data_yaw_char[0]) << 12) | ((dh.simtools_data_yaw_char[1]) << 8) | ((dh.simtools_data_yaw_char[2]) << 4) | ((dh.simtools_data_yaw_char[3]) << 0);
+		}
+		else
+		{
+			//nothing
+		}
+	}
+	else if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3_SIMTOOLS")))
+	{
+		TCHAR t_tcReceiveData[128];
+		int t_nRet = 0;
+		ConfigParameterList t_sConfigParameterList;
+		CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
+		s_simtools_chardata dh;
+		int i = 0;
+
+		if (sizeof(s_simtools_chardata) == pGamePlatformDlg->m_CConnectToLocalSoft.ReceiveFrom(&dh, sizeof(s_simtools_chardata), t_ip, t_port))
+		{
+			//recvfrom(Socket_udp_connect_with_simtools, (char *)&dh, sizeof(s_simtools_chardata), 0, (SOCKADDR *)&simtools_Addr, &simtools_AddrSize);
+			for (i = 0; i < 4; i++)
+			{
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_head_char[i]);
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_pitch_char[i]);
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_roll_char[i]);
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_sway_char[i]);
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_surge_char[i]);
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_heave_char[i]);
+				pGamePlatformDlg->SpecialFunctions.CharToHex(&dh.simtools_data_yaw_char[i]);
+			}
+
+			pGamePlatformDlg->m_sSimtoolsData.Head = ((dh.simtools_data_head_char[0]) << 12) | ((dh.simtools_data_head_char[1]) << 8) | ((dh.simtools_data_head_char[2]) << 4) | ((dh.simtools_data_head_char[3]) << 0);
+			pGamePlatformDlg->m_sSimtoolsData.Pitch = ((dh.simtools_data_pitch_char[0]) << 12) | ((dh.simtools_data_pitch_char[1]) << 8) | ((dh.simtools_data_pitch_char[2]) << 4) | ((dh.simtools_data_pitch_char[3]) << 0);
+			pGamePlatformDlg->m_sSimtoolsData.Roll = ((dh.simtools_data_roll_char[0]) << 12) | ((dh.simtools_data_roll_char[1]) << 8) | ((dh.simtools_data_roll_char[2]) << 4) | ((dh.simtools_data_roll_char[3]) << 0);
+			pGamePlatformDlg->m_sSimtoolsData.Sway = ((dh.simtools_data_sway_char[0]) << 12) | ((dh.simtools_data_sway_char[1]) << 8) | ((dh.simtools_data_sway_char[2]) << 4) | ((dh.simtools_data_sway_char[3]) << 0);
+			pGamePlatformDlg->m_sSimtoolsData.Surge = ((dh.simtools_data_surge_char[0]) << 12) | ((dh.simtools_data_surge_char[1]) << 8) | ((dh.simtools_data_surge_char[2]) << 4) | ((dh.simtools_data_surge_char[3]) << 0);
+			pGamePlatformDlg->m_sSimtoolsData.Heave = ((dh.simtools_data_heave_char[0]) << 12) | ((dh.simtools_data_heave_char[1]) << 8) | ((dh.simtools_data_heave_char[2]) << 4) | ((dh.simtools_data_heave_char[3]) << 0);
+			pGamePlatformDlg->m_sSimtoolsData.Yaw = ((dh.simtools_data_yaw_char[0]) << 12) | ((dh.simtools_data_yaw_char[1]) << 8) | ((dh.simtools_data_yaw_char[2]) << 4) | ((dh.simtools_data_yaw_char[3]) << 0);
+		}
+	}
+	else
+	{
+		//Nothing
 	}
 }
 
@@ -1533,7 +1597,53 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		}
 	}	
 }
+void CALLBACK TimeProcFor1ms(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)
+{
+	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)dwUser;
+	CSpecialFunctions *pSpecialFunction = &pGamePlatformDlg->SpecialFunctions;
+	pGamePlatformDlg->m_1msTiming++;
+	if (10 <= pGamePlatformDlg->m_1msTiming)
+	{
+		pGamePlatformDlg->m_1msTiming = 0;
 
+		pGamePlatformDlg->game_original_data.attitude_pitch += pGamePlatformDlg->t_game_original_data.attitude_pitch;
+		pGamePlatformDlg->game_original_data.attitude_roll += pGamePlatformDlg->t_game_original_data.attitude_roll;
+		pGamePlatformDlg->game_original_data.attitude_yaw += pGamePlatformDlg->t_game_original_data.attitude_yaw;
+		pGamePlatformDlg->game_original_data.attitude_surge += pGamePlatformDlg->t_game_original_data.attitude_surge;
+		pGamePlatformDlg->game_original_data.attitude_sway += pGamePlatformDlg->t_game_original_data.attitude_sway;
+		pGamePlatformDlg->game_original_data.attitude_heave += pGamePlatformDlg->t_game_original_data.attitude_heave;
+
+		pGamePlatformDlg->game_original_data.attitude_pitch /= 10.0f;
+		pGamePlatformDlg->game_original_data.attitude_roll /= 10.0f;
+		pGamePlatformDlg->game_original_data.attitude_yaw /= 10.0f;
+		pGamePlatformDlg->game_original_data.attitude_surge /= 10.0f;
+		pGamePlatformDlg->game_original_data.attitude_sway /= 10.0f;
+		pGamePlatformDlg->game_original_data.attitude_heave /= 10.0f;
+
+		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.nCheckID = 55;
+		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.nCmd = 0;
+
+		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[1] = 
+			pSpecialFunction->first_order_lag_filter(((1.5707963f - pGamePlatformDlg->game_original_data.attitude_roll/*3.1415926/2.0*/)*180.0 / 3.1415926)*pGamePlatformDlg->m_sConfigParameterList.fK_Roll, pGamePlatformDlg->pre_game_data.DOFs[1], pGamePlatformDlg->m_AttitudeSmoothFactor[1])
+			/*+ pSpecialFunction->first_order_lag_filter(game_original_data.attitude_sway*k_additional_sway)*/;
+
+		pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sToDOFBuf), sizeof(pGamePlatformDlg->ConnectToController.m_sToDOFBuf), pGamePlatformDlg->m_sConfigParameterList.nControllerPort, pGamePlatformDlg->m_sConfigParameterList.tcaControllerIP);
+		for (int i = 0; i < 6; i++)
+		{
+			pGamePlatformDlg->pre_game_data.DOFs[i] = pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[i];
+		}
+	}
+	else
+	{
+		pGamePlatformDlg->game_original_data.attitude_pitch += pGamePlatformDlg->t_game_original_data.attitude_pitch;
+		pGamePlatformDlg->game_original_data.attitude_roll += pGamePlatformDlg->t_game_original_data.attitude_roll;
+		pGamePlatformDlg->game_original_data.attitude_yaw += pGamePlatformDlg->t_game_original_data.attitude_yaw;
+		pGamePlatformDlg->game_original_data.attitude_surge += pGamePlatformDlg->t_game_original_data.attitude_surge;
+		pGamePlatformDlg->game_original_data.attitude_sway += pGamePlatformDlg->t_game_original_data.attitude_sway;
+		pGamePlatformDlg->game_original_data.attitude_heave += pGamePlatformDlg->t_game_original_data.attitude_heave;
+	}
+
+}
 
 
 void CGamePlatformDlg::OnBnClickedOk()

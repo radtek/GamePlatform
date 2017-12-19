@@ -8,6 +8,7 @@
 #include "ConnectToAttitudeSource.h"										//connect to simtools software/P3D game software/other
 #include "SpecialFunctions.h"
 #include "SimConnect.h"
+#include "DataConciliation.h"
 
 #define WM_USER_TRAYICON_NOTIFY	(WM_USER+102)
 //P3D
@@ -288,6 +289,28 @@ struct s_simtools_chardata
 	char simtools_data_yaw_char[4];
 };
 
+struct s_simtools_plugin_data
+{
+	float game_timer;
+	float undefined_data1[3];
+	float attitude_yaw;
+	float attitude_pitch;
+	float attitude_roll;
+	float attitude_sway;
+	float attitude_surge;
+	float attitude_heave;
+	float undefined_data2[7];
+	s_simtools_plugin_data()
+	{
+		attitude_yaw = 0;
+		attitude_pitch = 0;
+		attitude_roll = 1.5707963f;
+		attitude_sway = 0;
+		attitude_surge = 0;
+		attitude_heave = 0;
+	}
+};
+
 struct SimtoolsData
 {
 	UINT16 Head;
@@ -495,7 +518,15 @@ public:			//DIRT3
 	SimtoolsData m_sSimtoolsData;
 
 	int DIRT3_DataProcess();
-protected:
+				//remove Simtools
+	s_simtools_plugin_data t_game_original_data;
+	s_simtools_plugin_data game_original_data;
+	DataToDOF pre_game_data;
+	float m_AttitudeSmoothFactor[6];
+	INT			m_1msTiming;			//1ms timing for Dirt3 When Remove Simtools
+
+public:			//Config Parameter
+	CDataConciliation m_CDataConciliation;
 	
 public:			//Tray Menu
 	afx_msg void OnRcancel();

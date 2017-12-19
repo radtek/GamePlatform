@@ -30,5 +30,6 @@ public:
 	float LimitVelAndACC(MotionParaList *tspMotionParaList);
 
 	void CharToHex(char *pt);
+	float first_order_lag_filter(float input_now, float cal_pre, float k);
 };
 
