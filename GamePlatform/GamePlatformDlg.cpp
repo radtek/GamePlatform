@@ -227,28 +227,14 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 	ShowWindow(SW_HIDE);
 	// TODO: Add extra initialization here
-
-	m_hSingleProMutex = CreateMutex(NULL, TRUE, _T("GamePlatform"));
-	if (m_hSingleProMutex)
-	{
-		if (ERROR_ALREADY_EXISTS == GetLastError())
-		{
-			AfxMessageBox(_T("ALREADY_EXISTS!\r\n"));
-			exit(0);
-		}
-	}
-	else
-	{
-		exit(0);
-	}
-
+	
 	//NOTIFYICON
 	_tcscpy_s(m_szTip,_T("MOTUS"));
 	m_hTrayMenu = LoadMenu(GetModuleHandle(NULL),MAKEINTRESOURCE(IDR_TRAYICON));
 	NotifyIconInit(AfxGetMainWnd()->m_hWnd, IDI_ICON1, WM_USER_TRAYICON_NOTIFY, LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_TRAYICON)), m_szTip);
 	NotifyIconShow();
 
-	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
+	
 #ifdef MOTUS_LOCK
 	CTime t_CTime(m_lLastUseData);
 	if ((t_CTime > m_CCurrentData) || (DeliveryData>m_CCurrentData))
@@ -276,6 +262,7 @@ BOOL CGamePlatformDlg::OnInitDialog()
 		SpecialFunctions.WriteStringToConfigFile(TEXT("GAME_PARAMETER"), TEXT("NUMBER"), t_CString, NameOfConfigFlie);
 	}
 #endif
+	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
 	CheckProcessMutex(m_sConfigParameterList.tcaGameName);
 	//Controller
 	_tcscpy_s(ConnectToController.m_tcaControllerIP, m_sConfigParameterList.tcaControllerIP);
@@ -501,7 +488,35 @@ void CGamePlatformDlg::CheckProcessMutex(LPCTSTR lpName)
 	{
 		if (ERROR_ALREADY_EXISTS == GetLastError())
 		{
-			AfxMessageBox(TEXT("ProcessMutex already existed!\r\n"));
+			if (0 == _tcscmp(lpName, TEXT("DIRT3")))
+			{
+				if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+				{
+					HINSTANCE ret = ShellExecute(0, TEXT("open"), _T("D:\\Games\\DIRT3.Chs.Green.Edition-ALI213\\dirt3.exe"), TEXT(""), _T("D:\\Games\\DIRT3.Chs.Green.Edition-ALI213"), SW_SHOWMINIMIZED);
+					if (ret <= (HINSTANCE)32)
+					{
+						AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
+						exit(-1);
+					}
+					int t_timing = 0;
+					while (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+					{
+						Sleep(1000);
+						t_timing++;
+						if (15 <= t_timing)
+						{
+							AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
+							exit(-1);
+						}
+					}
+					//Sleep(3000);
+				}
+				else
+				{
+					AfxMessageBox(TEXT("Process already existed!\r\n"));
+				}
+			}
+			//AfxMessageBox(TEXT("ProcessMutex already existed!\r\n"));
 			exit(-1);
 		}
 		else
@@ -686,27 +701,32 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 	}
 	else if (0 == _tcscmp(lpName, TEXT("DIRT3")))
 	{
-		/*if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+		if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
 		{
-			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), m_sConfigParameterList.tcaGameFolderPath, SW_SHOWMINIMIZED);
+			HINSTANCE ret = ShellExecute(0, TEXT("open"), _T("D:\\Games\\DIRT3.Chs.Green.Edition-ALI213\\dirt3.exe"), TEXT(""), _T("D:\\Games\\DIRT3.Chs.Green.Edition-ALI213"), SW_SHOWMINIMIZED);
 			if (ret <= (HINSTANCE)32)
 			{
 				AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
 				exit(-1);
 			}
+			int t_timing = 0;
+			while (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
+			{
+				Sleep(1000);
+				t_timing++;
+				if (15 <= t_timing)
+				{
+					AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
+					exit(-1);
+				}
+			}
+			//Sleep(3000);
 		}
-		int t_timing = 0;
-		while (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
+		else
 		{
-		Sleep(1000);
-		t_timing++;
-		if (15 <= t_timing)
-		{
-		AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
-		exit(-1);
+			//nothing
 		}
-		}
-		Sleep(3000);*/
+		
 	}
 	else
 	{
@@ -1610,72 +1630,100 @@ void CALLBACK TimeProcFor1ms(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_P
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)dwUser;
 	CSpecialFunctions *pSpecialFunction = &pGamePlatformDlg->SpecialFunctions;
 	//pGamePlatformDlg->ConnectToController.SendTo((&pGamePlatformDlg->t_game_original_data)(pGamePlatformDlg->t_game_original_data), pGamePlatformDlg->m_sConfigParameterList.nControllerPort, pGamePlatformDlg->m_sConfigParameterList.tcaControllerIP);
-
-	pGamePlatformDlg->m_1msTiming++;
-	if (10 <= pGamePlatformDlg->m_1msTiming)
+	if (true == pGamePlatformDlg->m_bGamePrepareOver)
 	{
-		pGamePlatformDlg->m_1msTiming = 0;
-
-		pGamePlatformDlg->game_original_data.attitude_pitch += pGamePlatformDlg->t_game_original_data.attitude_pitch;
-		pGamePlatformDlg->game_original_data.attitude_roll += pGamePlatformDlg->t_game_original_data.attitude_roll;
-		pGamePlatformDlg->game_original_data.attitude_yaw += pGamePlatformDlg->t_game_original_data.attitude_yaw;
-		pGamePlatformDlg->game_original_data.attitude_surge += pGamePlatformDlg->t_game_original_data.attitude_surge;
-		pGamePlatformDlg->game_original_data.attitude_sway += pGamePlatformDlg->t_game_original_data.attitude_sway;
-		pGamePlatformDlg->game_original_data.attitude_heave += pGamePlatformDlg->t_game_original_data.attitude_heave;
-
-		pGamePlatformDlg->game_original_data.attitude_pitch /= 10.0f;
-		pGamePlatformDlg->game_original_data.attitude_roll /= 11.0f;
-		pGamePlatformDlg->game_original_data.attitude_yaw /= 10.0f;
-		pGamePlatformDlg->game_original_data.attitude_surge /= 10.0f;
-		pGamePlatformDlg->game_original_data.attitude_sway /= 10.0f;
-		pGamePlatformDlg->game_original_data.attitude_heave /= 10.0f;
-
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.nCheckID = 55;
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.nCmd = 0;
-
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[0] = pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_pitch*180.0 / 3.1415926)*pGamePlatformDlg->m_sConfigParameterList.fK_Pitch*pGamePlatformDlg->m_Factor[0] * 6.0f, pGamePlatformDlg->pre_game_data.DOFs[0], pGamePlatformDlg->m_Factor[8] / 5.0f)
-			+ (pGamePlatformDlg->game_original_data.attitude_surge*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_sway*sinf(pGamePlatformDlg->game_original_data.attitude_yaw)) / 300 * pGamePlatformDlg->m_sConfigParameterList.fK1_Surge*pGamePlatformDlg->m_Factor[6];
-
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[1] = pSpecialFunction->first_order_lag_filter(((1.57079625f - pGamePlatformDlg->game_original_data.attitude_roll/*3.1415926/2.0*/)*180.0 / 3.1415926)*pGamePlatformDlg->m_sConfigParameterList.fK_Roll*pGamePlatformDlg->m_Factor[1]*6.0f, pGamePlatformDlg->pre_game_data.DOFs[1], pGamePlatformDlg->m_Factor[9] / 5.0f)
-			+ (pGamePlatformDlg->game_original_data.attitude_sway*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_surge*sinf(pGamePlatformDlg->game_original_data.attitude_yaw)) / 300 * pGamePlatformDlg->m_sConfigParameterList.fK1_Sway*pGamePlatformDlg->m_Factor[7];
-
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[2] = 0.0f;//pGamePlatformDlg->game_original_data.attitude_yaw;
-		//	pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_roll*180.0 / 3.1415926)*pGamePlatformDlg->m_sConfigParameterList.fK_Roll, pGamePlatformDlg->pre_game_data.DOFs[1], pGamePlatformDlg->m_AttitudeSmoothFactor[1])
-		//	/*+ pSpecialFunction->first_order_lag_filter(game_original_data.attitude_sway*k_additional_sway)*/;
-		//sway
-		//pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[3] = (pGamePlatformDlg->game_original_data.attitude_sway*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_surge*sinf(pGamePlatformDlg->game_original_data.attitude_yaw));// pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_sway / 2000.0f)*pGamePlatformDlg->m_sConfigParameterList.fK_Sway, pGamePlatformDlg->pre_game_data.DOFs[3], pGamePlatformDlg->m_AttitudeSmoothFactor[3]);
-		//surge
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[4] = (pGamePlatformDlg->game_original_data.attitude_surge*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_sway*sinf(pGamePlatformDlg->game_original_data.attitude_yaw))/1500.0; //0.0f;// pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_surge / 1000.0f)*pGamePlatformDlg->m_sConfigParameterList.fK_Surge, pGamePlatformDlg->pre_game_data.DOFs[4], pGamePlatformDlg->m_AttitudeSmoothFactor[4]);
-		//heave
-		pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[5] = pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_heave / 60.0f)*pGamePlatformDlg->m_sConfigParameterList.fK_Heave*pGamePlatformDlg->m_Factor[5]*2.0f, pGamePlatformDlg->pre_game_data.DOFs[5], pGamePlatformDlg->m_Factor[13] / 5.0f);
-		if (fabsf(pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[5]) <= (0.0001f*pGamePlatformDlg->m_Factor[17]))
+		if (true == pGamePlatformDlg->m_bGameStartedFlag)
 		{
-			pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[5] = 0.0f;
+			pGamePlatformDlg->m_1msTiming++;
+			if (10 <= pGamePlatformDlg->m_1msTiming)
+			{
+				pGamePlatformDlg->m_1msTiming = 0;
+
+				pGamePlatformDlg->game_original_data.attitude_pitch += pGamePlatformDlg->t_game_original_data.attitude_pitch;
+				pGamePlatformDlg->game_original_data.attitude_roll += pGamePlatformDlg->t_game_original_data.attitude_roll;
+				pGamePlatformDlg->game_original_data.attitude_yaw += pGamePlatformDlg->t_game_original_data.attitude_yaw;
+				pGamePlatformDlg->game_original_data.attitude_surge += pGamePlatformDlg->t_game_original_data.attitude_surge;
+				pGamePlatformDlg->game_original_data.attitude_sway += pGamePlatformDlg->t_game_original_data.attitude_sway;
+				pGamePlatformDlg->game_original_data.attitude_heave += pGamePlatformDlg->t_game_original_data.attitude_heave;
+
+				pGamePlatformDlg->game_original_data.attitude_pitch /= 10.0f;
+				pGamePlatformDlg->game_original_data.attitude_roll /= 11.0f;
+				pGamePlatformDlg->game_original_data.attitude_yaw /= 10.0f;
+				pGamePlatformDlg->game_original_data.attitude_surge /= 10.0f;
+				pGamePlatformDlg->game_original_data.attitude_sway /= 10.0f;
+				pGamePlatformDlg->game_original_data.attitude_heave /= 10.0f;
+
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.nCheckID = 55;
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.nCmd = 0;
+				float t_Surge = (pGamePlatformDlg->game_original_data.attitude_surge*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_sway*sinf(pGamePlatformDlg->game_original_data.attitude_yaw))*32 / 3.0f * pGamePlatformDlg->m_sConfigParameterList.fK1_Surge*pGamePlatformDlg->m_Factor[6];
+				if (fabsf(t_Surge) <= (15.0f*pGamePlatformDlg->m_Factor[12]))
+				{
+					t_Surge = 0.0f;
+				}
+				else
+				{
+					//nothing
+				}
+				float t_Sway = (pGamePlatformDlg->game_original_data.attitude_sway*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_surge*sinf(pGamePlatformDlg->game_original_data.attitude_yaw))*16.0f / 3.0f * pGamePlatformDlg->m_sConfigParameterList.fK1_Sway*pGamePlatformDlg->m_Factor[7];
+				if (fabsf(t_Sway) <= (5.0f*pGamePlatformDlg->m_Factor[13]))
+				{
+					t_Sway = 0.0f;
+				}
+				else
+				{
+					//nothing
+				}
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[0] = -(pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_pitch*180.0 / 3.1415926)*pGamePlatformDlg->m_sConfigParameterList.fK_Pitch*pGamePlatformDlg->m_Factor[0] * 6.0f, pGamePlatformDlg->pre_game_data.DOFs[0], pGamePlatformDlg->m_Factor[8] / 5.0f)
+					/*- t_Surge/2.0f*/);
+				//pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[1] = t_Sway;
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[1] = -(pSpecialFunction->first_order_lag_filter(((1.57079625f - pGamePlatformDlg->game_original_data.attitude_roll)*180.0 / 3.1415926)*pGamePlatformDlg->m_sConfigParameterList.fK_Roll*pGamePlatformDlg->m_Factor[1] * 6.0f, pGamePlatformDlg->pre_game_data.DOFs[1], pGamePlatformDlg->m_Factor[9] / 5.0f)
+					- t_Sway)*0.75;
+
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[2] = 0.0f;//pGamePlatformDlg->game_original_data.attitude_yaw;
+				//sway
+				//pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[3] = (pGamePlatformDlg->game_original_data.attitude_sway*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_surge*sinf(pGamePlatformDlg->game_original_data.attitude_yaw));// pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_sway / 2000.0f)*pGamePlatformDlg->m_sConfigParameterList.fK_Sway, pGamePlatformDlg->pre_game_data.DOFs[3], pGamePlatformDlg->m_AttitudeSmoothFactor[3]);
+				//surge
+				if (fabsf(t_Surge) <= (40.0f*pGamePlatformDlg->m_Factor[12]))
+				{
+					t_Surge = 0.0f;
+				}
+				else
+				{
+					//nothing
+				}
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[4] = -t_Surge/100.0;//(pGamePlatformDlg->game_original_data.attitude_surge*cosf(pGamePlatformDlg->game_original_data.attitude_yaw) + pGamePlatformDlg->game_original_data.attitude_sway*sinf(pGamePlatformDlg->game_original_data.attitude_yaw)) / 1500.0; //0.0f;// pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_surge / 1000.0f)*pGamePlatformDlg->m_sConfigParameterList.fK_Surge, pGamePlatformDlg->pre_game_data.DOFs[4], pGamePlatformDlg->m_AttitudeSmoothFactor[4]);
+				//heave
+				pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[5] = (pSpecialFunction->first_order_lag_filter((pGamePlatformDlg->game_original_data.attitude_heave / 150.0f)*pGamePlatformDlg->m_sConfigParameterList.fK_Heave*pGamePlatformDlg->m_Factor[5] * 2.0f, pGamePlatformDlg->pre_game_data.DOFs[5], pGamePlatformDlg->m_Factor[13] / 5.0f));
+				if (fabsf(pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[5]) <= (0.009f*pGamePlatformDlg->m_Factor[17]))
+				{
+					pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[5] = 0.0f;
+				}
+				else
+				{
+					//nothing
+				}
+				pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sToDOFBuf), sizeof(pGamePlatformDlg->ConnectToController.m_sToDOFBuf), pGamePlatformDlg->m_sConfigParameterList.nControllerPort, pGamePlatformDlg->m_sConfigParameterList.tcaControllerIP);
+				for (int i = 0; i < 6; i++)
+				{
+					pGamePlatformDlg->pre_game_data.DOFs[i] = pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[i];
+				}
+				pGamePlatformDlg->game_original_data.attitude_pitch = 0.0f;
+				pGamePlatformDlg->game_original_data.attitude_roll = 1.57079625f;
+				pGamePlatformDlg->game_original_data.attitude_yaw = 0.0f;
+				pGamePlatformDlg->game_original_data.attitude_surge = 0.0f;
+				pGamePlatformDlg->game_original_data.attitude_sway = 0.0f;
+				pGamePlatformDlg->game_original_data.attitude_heave = 0.0f;
+			}
+			else
+			{
+				pGamePlatformDlg->game_original_data.attitude_pitch += pGamePlatformDlg->t_game_original_data.attitude_pitch;
+				pGamePlatformDlg->game_original_data.attitude_roll += pGamePlatformDlg->t_game_original_data.attitude_roll;
+				pGamePlatformDlg->game_original_data.attitude_yaw += pGamePlatformDlg->t_game_original_data.attitude_yaw;
+				pGamePlatformDlg->game_original_data.attitude_surge += pGamePlatformDlg->t_game_original_data.attitude_surge;
+				pGamePlatformDlg->game_original_data.attitude_sway += pGamePlatformDlg->t_game_original_data.attitude_sway;
+				pGamePlatformDlg->game_original_data.attitude_heave += pGamePlatformDlg->t_game_original_data.attitude_heave;
+			}
 		}
-		else
-		{
-			//nothing
-		}
-		pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sToDOFBuf), sizeof(pGamePlatformDlg->ConnectToController.m_sToDOFBuf), pGamePlatformDlg->m_sConfigParameterList.nControllerPort, pGamePlatformDlg->m_sConfigParameterList.tcaControllerIP);
-		for (int i = 0; i < 6; i++)
-		{
-			pGamePlatformDlg->pre_game_data.DOFs[i] = pGamePlatformDlg->ConnectToController.m_sToDOFBuf.DOFs[i];
-		}
-		pGamePlatformDlg->game_original_data.attitude_pitch = 0.0f;
-		pGamePlatformDlg->game_original_data.attitude_roll = 1.57079625f;
-		pGamePlatformDlg->game_original_data.attitude_yaw = 0.0f;
-		pGamePlatformDlg->game_original_data.attitude_surge = 0.0f;
-		pGamePlatformDlg->game_original_data.attitude_sway = 0.0f;
-		pGamePlatformDlg->game_original_data.attitude_heave = 0.0f;
-	}
-	else
-	{
-		pGamePlatformDlg->game_original_data.attitude_pitch += pGamePlatformDlg->t_game_original_data.attitude_pitch;
-		pGamePlatformDlg->game_original_data.attitude_roll += pGamePlatformDlg->t_game_original_data.attitude_roll;
-		pGamePlatformDlg->game_original_data.attitude_yaw += pGamePlatformDlg->t_game_original_data.attitude_yaw;
-		pGamePlatformDlg->game_original_data.attitude_surge += pGamePlatformDlg->t_game_original_data.attitude_surge;
-		pGamePlatformDlg->game_original_data.attitude_sway += pGamePlatformDlg->t_game_original_data.attitude_sway;
-		pGamePlatformDlg->game_original_data.attitude_heave += pGamePlatformDlg->t_game_original_data.attitude_heave;
 	}
 
 }
