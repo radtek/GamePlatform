@@ -40,6 +40,13 @@ struct DataToDOF
 	float DOFs[6];									//{横摇，纵倾，航向，前向，侧向，升降	}
 	float Vxyz[3];									//{前向，侧向，升降}，向右为正，向下为正
 	float Axyz[3];		//...
+	DataToDOF()
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			DOFs[i] = 0.0f;
+		}
+	}
 };
 
 struct DataToHost

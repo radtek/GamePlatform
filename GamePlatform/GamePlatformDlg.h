@@ -8,7 +8,7 @@
 #include "ConnectToAttitudeSource.h"										//connect to simtools software/P3D game software/other
 #include "SpecialFunctions.h"
 #include "SimConnect.h"
-#include "DataConciliation.h"
+//#include "DataConciliation.h"
 
 #define WM_USER_TRAYICON_NOTIFY	(WM_USER+102)
 //P3D
@@ -302,12 +302,12 @@ struct s_simtools_plugin_data
 	float undefined_data2[7];
 	s_simtools_plugin_data()
 	{
-		attitude_yaw = 0;
-		attitude_pitch = 0;
-		attitude_roll = 1.5707963f;
-		attitude_sway = 0;
-		attitude_surge = 0;
-		attitude_heave = 0;
+		attitude_yaw = 0.0;
+		attitude_pitch = 0.0;
+		attitude_roll = 1.57079625f;
+		attitude_sway = 0.0;
+		attitude_surge = 0.0;
+		attitude_heave = 0.0;
 	}
 };
 
@@ -526,8 +526,8 @@ public:			//DIRT3
 	INT			m_1msTiming;			//1ms timing for Dirt3 When Remove Simtools
 
 public:			//Config Parameter
-	CDataConciliation m_CDataConciliation;
-	
+	//CDataConciliation m_CDataConciliation;
+	float m_Factor[18];
 public:			//Tray Menu
 	afx_msg void OnRcancel();
 	afx_msg BOOL OnQueryEndSession();
