@@ -1570,7 +1570,7 @@ BOOL CGamePlatformDlg::OnQueryEndSession()
 		return FALSE;
 	// TODO:  Add your specialized query end session code here
 	m_bGameStartedFlag = FALSE;
-	ConnectToController.DOF_ToBottom();
+	//ConnectToController.DOF_ToBottom();
 	return TRUE;
 }
 
@@ -1607,7 +1607,7 @@ void CGamePlatformDlg::OnToBottom()
 {
 	// TODO:  Add your specialized query end session code here
 	m_bGameStartedFlag = FALSE;
-	ConnectToController.DOF_ToBottom();
+	//ConnectToController.DOF_ToBottom();
 }
 
 
@@ -1616,6 +1616,6 @@ void CGamePlatformDlg::OnEndSession(BOOL bEnding)
 	CDialogEx::OnEndSession(bEnding);
 	// TODO:  Add your specialized query end session code here
 	m_bGameStartedFlag = FALSE;
-	ConnectToController.DOF_ToBottom();
+	//ConnectToController.DOF_ToBottom();
 	exit(0);
 }
