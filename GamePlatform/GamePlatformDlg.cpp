@@ -977,7 +977,7 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 #ifdef USE_DOF
 	pGamePlatformDlg->ConnectToController.DOF_UpToMedian();
-	pGamePlatformDlg->ConnectToController.DOF_ToMedian();
+	//pGamePlatformDlg->ConnectToController.DOF_ToMedian();
 	pGamePlatformDlg->ConnectToController.DOF_ToRun();
 #endif
 	pGamePlatformDlg->GamesCheckAndPrepare(pGamePlatformDlg->m_sConfigParameterList.tcaGameName);

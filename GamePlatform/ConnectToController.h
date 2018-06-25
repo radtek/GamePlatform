@@ -63,7 +63,7 @@ public:
 
 	virtual void OnReceive(int nErrorCode);
 	//parameter
-	const int m_MaxDelay = 3000;					//60000*10ms
+	const int m_MaxDelay = 6000;					//60000*10ms
 	DataToDOF m_sToDOFBuf;
 	DataToDOF m_sToDOFBuf2;
 	DataToHost	m_sReturnedDataFromDOF;
