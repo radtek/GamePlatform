@@ -28,6 +28,7 @@ enum M_nCmd
 	S_CMD_HOM = 9,
 	S_CMD_JOYCTRL = 101,
 	S_CMD_GAMECTRL = 102,
+	S_CMD_GAMESTARTUP=120
 };
 
 struct DataToDOF
@@ -64,8 +65,9 @@ public:
 	virtual void OnReceive(int nErrorCode);
 	//parameter
 	const int m_MaxDelay = 6000;					//60000*10ms
+	DataToDOF m_preDataToDof;
 	DataToDOF m_sToDOFBuf;
-	DataToDOF m_sToDOFBuf2;
+	DataToDOF m_sDataFromMainControlToDof;//m_sToDOFBuf2;
 	DataToHost	m_sReturnedDataFromDOF;
 	TCHAR m_tcaControllerIP[17];
 	UINT m_nControllerPort;

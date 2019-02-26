@@ -28,7 +28,10 @@ public:
 	BOOL WriteStringToConfigFile(LPCTSTR lpAppName, LPCTSTR lpKeyName, LPCTSTR lpString, LPCTSTR lpFileName);
 	float fnval(float knots[], float coefs[],float x);
 	float LimitVelAndACC(MotionParaList *tspMotionParaList);
-
+	inline float firstLag(float preValue,float curValue, float filterFactor)
+	{
+		return (1 - filterFactor)*curValue + filterFactor*preValue;
+	}
 	void CharToHex(char *pt);
 };
 

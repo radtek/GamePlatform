@@ -7,12 +7,14 @@ CConnectToController::CConnectToController()
 	TCHAR tControllerIP[17] = TEXT("192.168.0.125");
 	_tcscpy_s(m_tcaControllerIP,tControllerIP);
 	m_nControllerPort = 5000;
+	
+	memset(&m_preDataToDof, 0, sizeof(m_preDataToDof));
 	memset(&m_sToDOFBuf,0,sizeof(m_sToDOFBuf));
-	memset(&m_sToDOFBuf2, 0, sizeof(m_sToDOFBuf2));
+	memset(&m_sDataFromMainControlToDof, 0, sizeof(m_sDataFromMainControlToDof));
 	memset(&m_sReturnedDataFromDOF, 0, sizeof(m_sReturnedDataFromDOF));
 	memset(m_tcaControllerIP, 0, sizeof(TCHAR)*17);
 	m_sToDOFBuf.nCheckID = 55;
-	m_sToDOFBuf2.nCheckID = 55;
+	m_sDataFromMainControlToDof.nCheckID = 55;
 }
 
 
@@ -23,19 +25,26 @@ CConnectToController::~CConnectToController()
 void CConnectToController::OnReceive(int nErrorCode)
 {
 	int t_nRet=0;
-	DataToHost t_sReturnedDataFromDOF;
-	t_nRet = ReceiveFrom(&t_sReturnedDataFromDOF, sizeof(t_sReturnedDataFromDOF), CString(m_tcaControllerIP), m_nControllerPort, 0);
+	unsigned char returnedDataFromNet[300];
+	CString remoteIp;
+	UINT remotePort;
+	t_nRet = ReceiveFrom(&returnedDataFromNet, sizeof(returnedDataFromNet), remoteIp, remotePort, 0);
 	if (SOCKET_ERROR == t_nRet)
 	{
 		ErrorWarnOfReceiveFrom(GetLastError());
 	}
 	else if (sizeof(DataToHost) == t_nRet)
 	{
-		memcpy(&m_sReturnedDataFromDOF, &t_sReturnedDataFromDOF, sizeof(DataToHost));
+		memcpy(&m_sReturnedDataFromDOF, &returnedDataFromNet, sizeof(m_sReturnedDataFromDOF));
+	}
+	else if ((10000 == remotePort) && (sizeof(DataToDOF) == t_nRet) && (0==remoteIp.Compare(TEXT("192.168.0.130"))))
+	{
+		memcpy(&m_sDataFromMainControlToDof, &returnedDataFromNet, sizeof(m_sDataFromMainControlToDof));
+		//lost part data
 	}
 	else
 	{
-		//lost part data
+
 	}
 	CAsyncSocket::OnReceive(nErrorCode);
 }

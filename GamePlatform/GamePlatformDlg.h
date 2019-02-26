@@ -8,6 +8,7 @@
 #include "ConnectToAttitudeSource.h"										//connect to simtools software/P3D game software/other
 #include "SpecialFunctions.h"
 #include "SimConnect.h"
+#include "SharedMemory.h"
 
 #define WM_USER_TRAYICON_NOTIFY	(WM_USER+102)
 //P3D
@@ -306,7 +307,11 @@ enum PlatformWorkMode
 	QR_SCAN_MODE,
 	IC_SCAN_MODE
 };
-
+enum Pcar2RunStatus
+{
+	CLOSED=0,
+	RUNNING=1
+};
 struct ConfigParameterList
 {
 	float fK_Pitch;
@@ -335,6 +340,9 @@ struct ConfigParameterList
 	TCHAR cLocalIPforExpansion[17];
 	UINT nPortForExpansion;
 
+	TCHAR cIpForMainControl[17];
+
+
 	TCHAR tcaControllerIP[17];
 	UINT nControllerPort;
 
@@ -350,6 +358,7 @@ class CGamePlatformDlg : public CDialogEx
 // Construction
 public:
 	CGamePlatformDlg(CWnd* pParent = NULL);	// standard constructor
+	~CGamePlatformDlg();
 
 // Dialog Data
 	enum { IDD = IDD_GAMEPLATFORM_DIALOG };
@@ -385,7 +394,7 @@ public:
 	const float m_fYawVelocityMax = 0.5f;
 public:
 	const CString NameOfConfigFlie = { TEXT("Config1.ini") };
-	
+	HINSTANCE m_GameStartUpReturnValue;
 
 	CConnectToController ConnectToController;							//connect to master control board
 	CConnectToAttitudeSource ConnectToAttitudeSource;					//connect to simtools software/P3D game software/other
@@ -482,9 +491,19 @@ public:																	//P3D use parameter.
 public:
 	SimtoolsData m_sSimtoolsData;
 
-	int CGamePlatformDlg::DIRT3_DataProcess();
-protected:
-	
+	int DIRT3_DataProcess();
+	//PCAR2
+public:
+	bool m_Pcar2RunStatus;
+	HANDLE fileHandle;
+	SharedMemory* sharedData;
+	SharedMemory* localCopy;
+	unsigned int updateIndex;
+	unsigned int indexChange;
+	int PCAR2_DataProcess();
+	// //检测Pcar2游戏是否运行
+	bool Pcar2IsStartUp();
+	int Pcar2SharedMemoryInit();
 public:
 	afx_msg void OnRcancel();
 	afx_msg BOOL OnQueryEndSession();
@@ -492,4 +511,5 @@ public:
 	afx_msg void OnToMiddle();
 	afx_msg void OnToBottom();
 	afx_msg void OnEndSession(BOOL bEnding);
+
 };

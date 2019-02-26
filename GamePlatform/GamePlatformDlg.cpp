@@ -10,6 +10,7 @@
 #include "mmsystem.h"						//Timer
 #include "resource.h"
 #include "Resource.h"
+#include "sharedmemory.h"
 
 #define		MAX_ANGULAR_VELOCITY			(0.06f)
 #define		MAX_ANGULAR_ACC					(0.0f)
@@ -143,6 +144,16 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 
 	m_csRemoteIP =_T("192.168.1.110");
 	m_nRemotePort=10005;
+
+	m_Pcar2RunStatus = false;
+	m_GameStartUpReturnValue = (HINSTANCE)0;
+}
+
+CGamePlatformDlg::~CGamePlatformDlg()
+{
+	UnmapViewOfFile(sharedData);
+	CloseHandle(fileHandle);
+	delete localCopy;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -229,9 +240,9 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	ConnectToController.AsyncSocketInit(m_sConfigParameterList.nPortForController, SOCK_DGRAM,63L,m_sConfigParameterList.tcaLocalIP);
 
 	//External Device
-	m_CConnectToExternalDevice.UserOnReceive = OnReceiveForExternalDevice;
-	m_CConnectToExternalDevice.UserObject = this;
-	m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.1.101"));
+	//m_CConnectToExternalDevice.UserOnReceive = OnReceiveForExternalDevice;
+	//m_CConnectToExternalDevice.UserObject = this;
+	//m_CConnectToExternalDevice.AsyncSocketInit(10002, SOCK_DGRAM, 63L, _T("192.168.1.101"));
 
 	if (0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("P3D")))
 	{
@@ -246,9 +257,14 @@ BOOL CGamePlatformDlg::OnInitDialog()
 		m_CConnectToLocalSoft.UserObject = this;
 		m_CConnectToLocalSoft.AsyncSocketInit(5123, SOCK_DGRAM, 63L, _T("192.168.0.131"));
 	}
+	else if(0 == _tcscmp(m_sConfigParameterList.tcaGameName, TEXT("PCAR2")))
+	{
+		
+	}
 	else
 	{
-		//nothing
+		AfxMessageBox(_T("配置文件中游戏未设置"));
+		exit(-1);
 	}
 	
 
@@ -839,6 +855,97 @@ int CGamePlatformDlg::DIRT3_DataProcess()
 	m_CConnectToExternalDevice.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
 	return 0;
 }
+int CGamePlatformDlg::PCAR2_DataProcess()
+{
+	//VEC_X：对应俯仰，低头为负				右转为负，左转为正，10左右
+	//VEC_Y：对应偏航；
+	//VEC_Z：对应横摇，前冲；右高为负，前冲，加速度为负，正常-10左右，后退，加速度为正，正常10左右，
+	static float preSharedDataOrientation[3] = { 0.0f, 0.0f, 0.0f };
+	static float preSharedDataLocalAcc[3] = { 0.0f, 0.0f, 0.0f };
+	static float preSharedDataRpm = 0.0f;
+	static float preSharedDataSpeed = 0.0f;
+	for (int i = 0; i < 3; i++)
+	{
+		preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i],0.98f);
+		preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
+	}
+	preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
+	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
+
+	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
+	if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	{
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
+			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98);
+
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
+			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98);
+
+		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
+		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
+	}
+	else
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[i] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[i+3] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.Vxyz[i] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.Axyz[i] = 0.0f;
+			preSharedDataOrientation[i] = 0.0f;
+			preSharedDataLocalAcc[i] = 0.0f;
+		}
+		preSharedDataRpm = 0.0f;
+		preSharedDataSpeed = 0.0f;
+	}
+	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	{
+		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+	}
+	//if (sharedData->mSequenceNumber % 2)
+	//{
+	//	// Odd sequence number indicates, that write into the shared memory is just happening
+	//	//continue;
+	//}
+	//else
+	//{
+	//	indexChange = sharedData->mSequenceNumber - updateIndex;
+	//	updateIndex = sharedData->mSequenceNumber;
+
+	//	//Copy the whole structure before processing it, otherwise the risk of the game writing into it during processing is too high.
+	//	memcpy(localCopy, sharedData, sizeof(SharedMemory));
+
+
+	//	if (localCopy->mSequenceNumber != updateIndex)
+	//	{
+	//		// More writes had happened during the read. Should be rare, but can happen.
+	//		//continue;
+	//	}
+	//	else
+	//	{
+	//		TRACE(_T("Sequence number increase %d, current index %d, previous index %d\n"), indexChange, localCopy->mSequenceNumber, updateIndex);
+
+	//		const bool isValidParticipantIndex = localCopy->mViewedParticipantIndex != -1 && localCopy->mViewedParticipantIndex < localCopy->mNumParticipants && localCopy->mViewedParticipantIndex < STORED_PARTICIPANTS_MAX;
+	//		if (isValidParticipantIndex)
+	//		{
+	//			const ParticipantInfo& viewedParticipantInfo = localCopy->mParticipantInfo[sharedData->mViewedParticipantIndex];
+	//			TRACE("mParticipantName: (%s)\n", viewedParticipantInfo.mName);
+	//			TRACE("lap Distance = %f \n", viewedParticipantInfo.mCurrentLapDistance);
+	//		}
+
+	//		TRACE("mGameState: (%d)\n", localCopy->mGameState);
+	//		TRACE("mSessionState: (%d)\n", localCopy->mSessionState);
+	//		TRACE("mOdometerKM: (%0.2f)\n", localCopy->mOdometerKM);
+	//		TRACE("mOrientation[0]: (%0.2f)\n", localCopy->mOrientation[0]);
+	//		TRACE("mOrientation[1]: (%0.2f)\n", localCopy->mOrientation[1]);
+	//		TRACE("mOrientation[2]: (%0.2f)\n", localCopy->mOrientation[2]);
+	//		TRACE("mLocalAcceleration[0]: (%0.2f)\n", localCopy->mLocalAcceleration[0]);
+	//		TRACE("mLocalAcceleration[1]: (%0.2f)\n", localCopy->mLocalAcceleration[1]);
+	//		TRACE("mLocalAcceleration[2]: (%0.2f)\n", localCopy->mLocalAcceleration[2]);
+	//	}
+	//}
+	return 0;
+}
 void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 {
 	int t_nRet = 0;
@@ -980,7 +1087,7 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	//pGamePlatformDlg->ConnectToController.DOF_ToMedian();
 	pGamePlatformDlg->ConnectToController.DOF_ToRun();
 #endif
-	pGamePlatformDlg->GamesCheckAndPrepare(pGamePlatformDlg->m_sConfigParameterList.tcaGameName);
+	//pGamePlatformDlg->GamesCheckAndPrepare(pGamePlatformDlg->m_sConfigParameterList.tcaGameName);
 	pGamePlatformDlg->m_bGameStartedFlag = TRUE;
 	return 0;
 }
@@ -1418,15 +1525,44 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		{
 			pGamePlatformDlg->P3D_DataProcess();
 		}
-		else /*if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))*/
+		else if (0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("DIRT3")) && (NULL != ::FindWindow(NULL, TEXT("DIRT 3"))))
 		{
 			pGamePlatformDlg->DIRT3_DataProcess();
+		}
+		else if(0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("PCAR2")))
+		{
+			if ((true == pGamePlatformDlg->Pcar2IsStartUp()) && (false==pGamePlatformDlg->m_Pcar2RunStatus))
+			{
+				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
+				pGamePlatformDlg->m_Pcar2RunStatus = true;
+				pGamePlatformDlg->Pcar2SharedMemoryInit();
+			}
+			else if ((false == pGamePlatformDlg->Pcar2IsStartUp()) && (true == pGamePlatformDlg->m_Pcar2RunStatus))
+			{
+				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
+				pGamePlatformDlg->m_Pcar2RunStatus = false;
+			}
+			else if ((false == pGamePlatformDlg->Pcar2IsStartUp()) && (false == pGamePlatformDlg->m_Pcar2RunStatus) \
+				&& (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32) && (S_CMD_GAMESTARTUP==pGamePlatformDlg->ConnectToController.m_sDataFromMainControlToDof.nCmd))
+			{
+				pGamePlatformDlg->m_GameStartUpReturnValue = ShellExecute(0, TEXT("open"), pGamePlatformDlg->m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
+				if (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32)
+				{
+					AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
+					exit(-1);
+				}
+			}
+			if (pGamePlatformDlg->m_Pcar2RunStatus == true)
+			{
+				pGamePlatformDlg->PCAR2_DataProcess();
+			}
 		}
 	}
 	else
 	{
 		//nothing
 	}
+	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 	
 	
 }
@@ -1618,4 +1754,48 @@ void CGamePlatformDlg::OnEndSession(BOOL bEnding)
 	m_bGameStartedFlag = FALSE;
 	ConnectToController.DOF_ToBottom();
 	exit(0);
+}
+
+
+// //检测Pcar2游戏是否运行
+bool CGamePlatformDlg::Pcar2IsStartUp()
+{
+	if (NULL == ::FindWindow(NULL, TEXT("Project CARS 2™")))
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+
+int CGamePlatformDlg::Pcar2SharedMemoryInit()
+{
+	// Open the memory-mapped file
+	fileHandle = OpenFileMapping(PAGE_READONLY, FALSE, _T("$pcars2$"));
+	if (fileHandle == NULL)
+	{
+		AfxMessageBox(_T("Could not open file mapping object (%d).\n"), GetLastError());
+		exit(-1);
+	}
+
+	// Get the data structure
+	sharedData = (SharedMemory*)MapViewOfFile(fileHandle, PAGE_READONLY, 0, 0, sizeof(SharedMemory));
+	localCopy = new SharedMemory;
+	if (sharedData == NULL)
+	{
+		AfxMessageBox(_T("Could not map view of file (%d).\n"), GetLastError());
+		CloseHandle(fileHandle);
+		exit(-1);
+	}
+
+	// Ensure we're sync'd to the correct data version
+	if (sharedData->mVersion != SHARED_MEMORY_VERSION)
+	{
+		AfxMessageBox(_T("Data version mismatch\n"));
+		exit(-1);
+	}
+	return 0;
 }
