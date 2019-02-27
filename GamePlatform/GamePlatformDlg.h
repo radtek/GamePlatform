@@ -497,7 +497,6 @@ public:
 	bool m_Pcar2RunStatus;
 	HANDLE fileHandle;
 	SharedMemory* sharedData;
-	SharedMemory* localCopy;
 	unsigned int updateIndex;
 	unsigned int indexChange;
 	int PCAR2_DataProcess();

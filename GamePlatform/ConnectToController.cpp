@@ -159,7 +159,7 @@ int CConnectToController::DOF_ToBottom()
 		SendTo(&m_sToDOFBuf, sizeof(m_sToDOFBuf), m_nControllerPort, m_tcaControllerIP);
 		Sleep(10);
 		t_timing++;
-		if (t_timing >= (m_MaxDelay/10))
+		if (t_timing >= (m_MaxDelay/10/100))
 		{
 			return -1;
 			//AfxMessageBox(TEXT("DOF_ToBottom failed!\r\nPlease check the manual!"));

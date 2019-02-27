@@ -153,7 +153,6 @@ CGamePlatformDlg::~CGamePlatformDlg()
 {
 	UnmapViewOfFile(sharedData);
 	CloseHandle(fileHandle);
-	delete localCopy;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -855,23 +854,25 @@ int CGamePlatformDlg::DIRT3_DataProcess()
 	m_CConnectToExternalDevice.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
 	return 0;
 }
+static float preSharedDataOrientation[3] = { 0.0f, 0.0f, 0.0f };
+static float preSharedDataLocalAcc[3] = { 0.0f, 0.0f, 0.0f };
+static float preSharedDataRpm = 0.0f;
+static float preSharedDataSpeed = 0.0f;
 int CGamePlatformDlg::PCAR2_DataProcess()
 {
 	//VEC_X：对应俯仰，低头为负				右转为负，左转为正，10左右
 	//VEC_Y：对应偏航；
 	//VEC_Z：对应横摇，前冲；右高为负，前冲，加速度为负，正常-10左右，后退，加速度为正，正常10左右，
-	static float preSharedDataOrientation[3] = { 0.0f, 0.0f, 0.0f };
-	static float preSharedDataLocalAcc[3] = { 0.0f, 0.0f, 0.0f };
-	static float preSharedDataRpm = 0.0f;
-	static float preSharedDataSpeed = 0.0f;
+
 	for (int i = 0; i < 3; i++)
 	{
-		preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i],0.98f);
+		preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i], 0.98f);
 		preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
 	}
-	preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
-	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
-
+	preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.0f);
+	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.0f);
+	ConnectToController.m_sDataFromMainControlToDof.nCheckID = 55;
+	ConnectToController.m_sDataFromMainControlToDof.nCmd = S_CMD_RUN;
 	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
 	if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
 	{
@@ -889,7 +890,7 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 		for (int i = 0; i < 3; i++)
 		{
 			ConnectToController.m_sDataFromMainControlToDof.DOFs[i] = 0.0f;
-			ConnectToController.m_sDataFromMainControlToDof.DOFs[i+3] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[i + 3] = 0.0f;
 			ConnectToController.m_sDataFromMainControlToDof.Vxyz[i] = 0.0f;
 			ConnectToController.m_sDataFromMainControlToDof.Axyz[i] = 0.0f;
 			preSharedDataOrientation[i] = 0.0f;
@@ -898,10 +899,47 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 		preSharedDataRpm = 0.0f;
 		preSharedDataSpeed = 0.0f;
 	}
-	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	{
-		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-	}
+
+	ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+
+	//for (int i = 0; i < 3; i++)
+	//{
+	//	preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i],0.98f);
+	//	preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
+	//}
+	//preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
+	//preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
+
+	////TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
+	//if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	//{
+	//	ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
+	//		- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98);
+
+	//	ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
+	//		+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98);
+
+	//	ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
+	//	ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
+	//}
+	//else
+	//{
+	//	for (int i = 0; i < 3; i++)
+	//	{
+	//		ConnectToController.m_sDataFromMainControlToDof.DOFs[i] = 0.0f;
+	//		ConnectToController.m_sDataFromMainControlToDof.DOFs[i+3] = 0.0f;
+	//		ConnectToController.m_sDataFromMainControlToDof.Vxyz[i] = 0.0f;
+	//		ConnectToController.m_sDataFromMainControlToDof.Axyz[i] = 0.0f;
+	//		preSharedDataOrientation[i] = 0.0f;
+	//		preSharedDataLocalAcc[i] = 0.0f;
+	//	}
+	//	preSharedDataRpm = 0.0f;
+	//	preSharedDataSpeed = 0.0f;
+	//}
+	//if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	//{
+	//	ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+	//}
 	//if (sharedData->mSequenceNumber % 2)
 	//{
 	//	// Odd sequence number indicates, that write into the shared memory is just happening
@@ -1533,6 +1571,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		{
 			if ((true == pGamePlatformDlg->Pcar2IsStartUp()) && (false==pGamePlatformDlg->m_Pcar2RunStatus))
 			{
+				Sleep(3000);
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = true;
 				pGamePlatformDlg->Pcar2SharedMemoryInit();
@@ -1541,9 +1580,11 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 			{
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = false;
+				UnmapViewOfFile(pGamePlatformDlg->sharedData);
+				CloseHandle(pGamePlatformDlg->fileHandle);
 			}
 			else if ((false == pGamePlatformDlg->Pcar2IsStartUp()) && (false == pGamePlatformDlg->m_Pcar2RunStatus) \
-				&& (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32) && (S_CMD_GAMESTARTUP==pGamePlatformDlg->ConnectToController.m_sDataFromMainControlToDof.nCmd))
+				&& (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32)/* && (S_CMD_GAMESTARTUP==pGamePlatformDlg->ConnectToController.m_sDataFromMainControlToDof.nCmd)*/)
 			{
 				pGamePlatformDlg->m_GameStartUpReturnValue = ShellExecute(0, TEXT("open"), pGamePlatformDlg->m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
 				if (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32)
@@ -1562,7 +1603,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		//nothing
 	}
-	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	//pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 	
 	
 }
@@ -1695,7 +1736,7 @@ void CGamePlatformDlg::OnRcancel()
 {
 	// TODO:  Add your specialized query end session code here
 	m_bGameStartedFlag = FALSE;
-	ConnectToController.DOF_ToMedian();
+	ConnectToController.DOF_ToBottom();
 	exit(0);
 }
 
@@ -1777,13 +1818,12 @@ int CGamePlatformDlg::Pcar2SharedMemoryInit()
 	fileHandle = OpenFileMapping(PAGE_READONLY, FALSE, _T("$pcars2$"));
 	if (fileHandle == NULL)
 	{
-		AfxMessageBox(_T("Could not open file mapping object (%d).\n"), GetLastError());
+		AfxMessageBox(_T("Could not open file mapping object %d.\n"), GetLastError());
 		exit(-1);
 	}
 
 	// Get the data structure
 	sharedData = (SharedMemory*)MapViewOfFile(fileHandle, PAGE_READONLY, 0, 0, sizeof(SharedMemory));
-	localCopy = new SharedMemory;
 	if (sharedData == NULL)
 	{
 		AfxMessageBox(_T("Could not map view of file (%d).\n"), GetLastError());
