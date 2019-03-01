@@ -30,7 +30,7 @@ Copyright (c) MWL. All rights reserved.
 // Header version number to test against
 enum
 {
-	SHARED_MEMORY_VERSION = 9
+	SHARED_MEMORY_VERSION = 10//9
 };
 
 // Maximum allowed length of string

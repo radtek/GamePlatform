@@ -153,7 +153,6 @@ CGamePlatformDlg::~CGamePlatformDlg()
 {
 	UnmapViewOfFile(sharedData);
 	CloseHandle(fileHandle);
-	delete localCopy;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -293,7 +292,6 @@ void CGamePlatformDlg::OnSysCommand(UINT nID, LPARAM lParam)
 // If you add a minimize button to your dialog, you will need the code below
 //  to draw the icon.  For MFC applications using the document/view model,
 //  this is automatically done for you by the framework.
-
 void CGamePlatformDlg::OnPaint()
 {
 	if (IsIconic())
@@ -436,6 +434,275 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 
 }
 
+
+
+#pragma region 游戏数据处理
+int CGamePlatformDlg::P3D_ExternalControlDataProcess(DataToHost tsDataToHost)
+{
+	double tdValue;
+	if ((85 < tsDataToHost.attitude[0]) && (210 > tsDataToHost.attitude[0]))
+	{
+		tdValue = (tsDataToHost.attitude[0] - 85) / 1.25;
+		if (100.0 <= tdValue)
+		{
+			tdValue = 100.0;
+		}
+		else if (0.0 >= tdValue)
+		{
+			tdValue = 0.0;
+		}
+	}
+	else if ((85 >= tsDataToHost.attitude[0]) && (0 <= tsDataToHost.attitude[0]))
+	{
+		tdValue = 0;
+	}
+	else if ((210 <= tsDataToHost.attitude[0]) && (255 >= tsDataToHost.attitude[0]))
+	{
+		tdValue = 100;
+	}
+	else
+	{
+		tdValue = m_sP3D_Para.sThrottles.dThrottle1;
+	}
+	m_sP3D_Para.sThrottles.dThrottle1 = tdValue;
+
+	if ((50 < tsDataToHost.nRev1) && (210 > tsDataToHost.nRev1))
+	{
+		tdValue = (210 - tsDataToHost.nRev1) / 1.6;
+	}
+	else if ((50 >= tsDataToHost.nRev1) && (0 <= tsDataToHost.nRev1))
+	{
+		tdValue = 100;
+	}
+	else if ((210 <= tsDataToHost.nRev1) && (255 >= tsDataToHost.nRev1))
+	{
+		tdValue = 0;
+	}
+	else
+	{
+		tdValue = m_sP3D_Para.sOtherControl.nCollectivePosition;
+	}
+	m_sP3D_Para.sOtherControl.nCollectivePosition = (INT)tdValue;
+	//m_sP3D_Para.sThrottles.dThrottle1 = 2000;
+
+	//m_sP3D_Para.sThrottles.dThrottle2 = m_sP3D_Para.sThrottles.dThrottle1;
+	//pitch
+	//m_sP3D_Para.sElevator.dElevatorPercent = (ConnectToController.m_sReturnedDataFromDOF.motor_code[1] - 4095.0 / 2.0) / (4095.0 / 2.0);
+	//if (1.0 <= m_sP3D_Para.sElevator.dElevatorPercent)
+	//{
+	//	m_sP3D_Para.sElevator.dElevatorPercent = 1.0;
+	//}
+	//else if (-1.0 >= m_sP3D_Para.sElevator.dElevatorPercent)
+	//{
+	//	m_sP3D_Para.sElevator.dElevatorPercent = -1.0;
+	//}
+	//else if ((-0.05 <= m_sP3D_Para.sElevator.dElevatorPercent) && (0.05 >= m_sP3D_Para.sElevator.dElevatorPercent))
+	//{
+	//	m_sP3D_Para.sElevator.dElevatorPercent = 0.0;
+	//}
+	////roll
+	//m_sP3D_Para.sAileron.dAileronPercent = (ConnectToController.m_sReturnedDataFromDOF.motor_code[2] - 4095.0 / 2.0) / (4095.0 / 2.0);
+	//if (1.0 <= m_sP3D_Para.sAileron.dAileronPercent)
+	//{
+	//	m_sP3D_Para.sAileron.dAileronPercent = 1.0;
+	//}
+	//else if (-1.0 >= m_sP3D_Para.sAileron.dAileronPercent)
+	//{
+	//	m_sP3D_Para.sAileron.dAileronPercent = -1.0;
+	//}
+	//else if ((-0.05 <= m_sP3D_Para.sAileron.dAileronPercent) && (0.05 >= m_sP3D_Para.sAileron.dAileronPercent))
+	//{
+	//	m_sP3D_Para.sAileron.dAileronPercent = 0.0;
+	//}
+	//m_sP3D_Para.sAileron.dAileronPercent = 0;
+	//ruder
+	if ((80 < tsDataToHost.nRev0) && (100 > tsDataToHost.nRev0))
+	{
+		tdValue = 0;
+	}
+	else if ((80 > tsDataToHost.nRev0) && (0 <= tsDataToHost.nRev0))
+	{
+		tdValue = (80.0 - tsDataToHost.nRev0) / 75.0;
+		if (1.0<tdValue)
+		{
+			tdValue = 1.0;
+		}
+	}
+	else if ((100 < tsDataToHost.nRev0) && (255 >= tsDataToHost.nRev0))
+	{
+		tdValue = (100.0 - tsDataToHost.nRev0) / 70.0;
+
+		if (-1.0>tdValue)
+		{
+			tdValue = -1.0;
+		}
+	}
+	else
+	{
+		tdValue = m_sP3D_Para.sRudder.dRudderPercent;
+	}
+	m_sP3D_Para.sRudder.dRudderPercent = tdValue;
+
+	//m_sP3D_Para.sRudder.dRudderPercent = 0;
+	//brake
+	/*m_sP3D_Para.sBrake.dBrakePercentL = ConnectToController.m_sReturnedDataFromDOF.motor_code[4] / 40.95;
+	if (5.0 > m_sP3D_Para.sBrake.dBrakePercentL)
+	{
+	m_sP3D_Para.sBrake.dBrakePercentL = 0.0;
+	}
+	else if (100 <= m_sP3D_Para.sBrake.dBrakePercentL)
+	{
+	m_sP3D_Para.sBrake.dBrakePercentL = 100.0;
+	}
+
+	m_sP3D_Para.sBrake.dBrakePercentR = m_sP3D_Para.sBrake.dBrakePercentL;*/
+	return 0;
+}
+int CGamePlatformDlg::P3D_DataProcess()
+{
+	if (FALSE == m_bStepSignalFlag)
+	{
+		ConnectToController.m_sToDOFBuf.nCheckID = 55;
+		ConnectToController.m_sToDOFBuf.nCmd = 0;
+
+		ConnectToController.m_sToDOFBuf.DOFs[0] = (float)SpecialFunctions.fnval(m_faKnots, m_faPitchCoefs, (float)m_FnvalTiming)*0.4f;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = (float)SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, (float)m_FnvalTiming)*0.4f;
+		ConnectToController.m_sToDOFBuf.DOFs[2] = (float)(SpecialFunctions.fnval(m_faKnots, m_faYawCoefs, (float)m_FnvalTiming))*0.2f; //0.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[3] = 0.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[4] = 0.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[5] = 0.0f;
+
+		m_sPitchParaList.fDesPos = ConnectToController.m_sToDOFBuf.DOFs[0];
+		m_sPitchParaList.fMaxDesPos = 15.0;
+		ConnectToController.m_sToDOFBuf.DOFs[0] = SpecialFunctions.LimitVelAndACC(&m_sPitchParaList);
+		m_sRollParaList.fDesPos = ConnectToController.m_sToDOFBuf.DOFs[1];
+		m_sRollParaList.fMaxDesPos = 15.0;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = SpecialFunctions.LimitVelAndACC(&m_sRollParaList);
+
+		ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf), sizeof(ConnectToController.m_sToDOFBuf), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+
+		/*SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_THROTTLE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_ThrottleControl), &m_sP3D_Para.sThrottles);
+		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_ELEVATOR, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_ElevatorControl), &m_sP3D_Para.sElevator);
+		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_AILERON, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_AileronControl), &m_sP3D_Para.sAileron);
+		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_BRAKE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_BrakeControl), &m_sP3D_Para.sBrake);*/
+		if (m_FnvalTiming >= 4)
+		{
+			//SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
+			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_PANEL, DEFINITION_PANEL, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
+			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_LIGHTS_SWITCHS, DEFINITION_LIGHTS_SWITCHS, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
+			SimConnect_CallDispatch(m_hSimConnect, ::MyDispatchProcRD, this);
+
+
+
+			m_faPitchCoefs[0] = m_faPitchCoefs[1];
+			m_faPitchCoefs[1] = m_faPitchCoefs[2];
+			m_faPitchCoefs[2] = m_faPitchCoefs[3];
+			m_faPitchCoefs[3] = m_faPHB_Buffer[0];
+
+			m_faRollCoefs[0] = m_faRollCoefs[1];
+			m_faRollCoefs[1] = m_faRollCoefs[2];
+			m_faRollCoefs[2] = m_faRollCoefs[3];
+			m_faRollCoefs[3] = m_faPHB_Buffer[1];
+
+			m_faYawCoefs[0] = m_faYawCoefs[1];
+			m_faYawCoefs[1] = m_faYawCoefs[2];
+			m_faYawCoefs[2] = m_faYawCoefs[3];
+			m_faYawCoefs[3] = m_faPHB_Buffer[2];
+
+			m_FnvalTiming = 0;
+		}
+		else
+		{
+			m_FnvalTiming++;
+		}
+	}
+
+	return 0;
+}
+int CGamePlatformDlg::DIRT3_DataProcess()
+{
+	if (0xEEEE == m_sSimtoolsData.Head)
+	{
+		ConnectToController.DOF_ToMedian();
+	}
+	else if (0xFFFF == m_sSimtoolsData.Head)
+	{
+		ConnectToController.m_sToDOFBuf.nCheckID = 55;
+		ConnectToController.m_sToDOFBuf.nCmd = 0;
+
+		ConnectToController.m_sToDOFBuf.DOFs[3] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Sway - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Sway*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[4] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Surge - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Surge*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[5] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Heave - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Heave*10.0f*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Roll - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Roll*100.0f \
+			+ ConnectToController.m_sToDOFBuf.DOFs[3] * m_sConfigParameterList.fK1_Sway*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[0] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Pitch - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Pitch*100.0f \
+			+ ConnectToController.m_sToDOFBuf.DOFs[4] * m_sConfigParameterList.fK1_Surge*100.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[2] = 0;//(static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Yaw - 0x7FFF)) / 10000)			* m_sConfigParameterList.nK_Yaw;
+
+
+		ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf), sizeof(ConnectToController.m_sToDOFBuf), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+	}
+	else if (0xBBBB == m_sSimtoolsData.Head)
+	{
+	}
+	char t_buffer[128];
+	sprintf_s(t_buffer, sizeof(t_buffer), "%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#", m_sConfigParameterList.fK_Pitch, m_sConfigParameterList.fK_Roll, \
+		m_sConfigParameterList.fK_Yaw, m_sConfigParameterList.fK_Surge, m_sConfigParameterList.fK_Sway, \
+		m_sConfigParameterList.fK_Heave, m_sConfigParameterList.fK1_Surge, m_sConfigParameterList.fK1_Sway);
+	m_CConnectToExternalDevice.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
+	return 0;
+}
+int CGamePlatformDlg::PCAR2_DataProcess()
+{
+	//VEC_X：对应俯仰，低头为负				右转为负，左转为正，10左右
+	//VEC_Y：对应偏航；
+	//VEC_Z：对应横摇，前冲；右高为负，前冲，加速度为负，正常-10左右，后退，加速度为正，正常10左右，
+	static float preSharedDataOrientation[3] = { 0.0f, 0.0f, 0.0f };
+	static float preSharedDataLocalAcc[3] = { 0.0f, 0.0f, 0.0f };
+	static float preSharedDataRpm = 0.0f;
+	static float preSharedDataSpeed = 0.0f;
+	for (int i = 0; i < 3; i++)
+	{
+		preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i], 0.98f);
+		preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
+	}
+	preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
+	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
+
+	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
+	if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	{
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
+			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98f));
+
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
+			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98f));
+
+		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
+		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
+	}
+	else
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[i] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[i+3] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.Vxyz[i] = 0.0f;
+			ConnectToController.m_sDataFromMainControlToDof.Axyz[i] = 0.0f;
+			preSharedDataOrientation[i] = 0.0f;
+			preSharedDataLocalAcc[i] = 0.0f;
+		}
+		preSharedDataRpm = 0.0f;
+		preSharedDataSpeed = 0.0f;
+	}
+	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	{
+		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
+	}
+	return 0;
+}
+#pragma endregion
+#pragma region 查看进程及平台准备
 void CGamePlatformDlg::CheckProcessMutex(LPCTSTR lpName)
 {
 	HANDLE m_hSingleProMutex;
@@ -459,8 +726,6 @@ void CGamePlatformDlg::CheckProcessMutex(LPCTSTR lpName)
 		}
 	}
 }
-
-
 int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 {
 	if (0 == _tcscmp(lpName, TEXT("P3D")))
@@ -499,14 +764,14 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			// Set up a data definition for the throttle control
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
 				"GENERAL ENG PROPELLER LEVER POSITION:1", "percent");					//控制直升机杆上的throttle
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:1", "percent");
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:2", "percent");
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:3", "percent");
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:4", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+						//	"GENERAL ENG THROTTLE LEVER POSITION:1", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+						//	"GENERAL ENG THROTTLE LEVER POSITION:2", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+						//	"GENERAL ENG THROTTLE LEVER POSITION:3", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+						//	"GENERAL ENG THROTTLE LEVER POSITION:4", "percent");
 
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ELEVATOR, "ELEVATOR POSITION", "Position");   //Control pitch
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_RUDDER, "RUDDER POSITION", "Position");   //Control yaw
@@ -583,7 +848,7 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_LIGHTS_SWITCHS, "GENERAL ENG FUEL VALVE:1", "Bool", SIMCONNECT_DATATYPE_INT32);
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_LIGHTS_SWITCHS, "LIGHT PANEL", "Bool", SIMCONNECT_DATATYPE_INT32);
 			//
-			
+
 			//// Request an event when the simulation starts
 			hr = SimConnect_SubscribeToSystemEvent(m_hSimConnect, EVENT_SIM_START, "SimStart");
 
@@ -602,34 +867,34 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			exit(-1);
 		}
 
-		
+
 	}
 	else if (0 == _tcscmp(lpName, TEXT("DIRT3")))
-	{	
-		
+	{
+
 		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameManager.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
 		Sleep(5000);
 		ShellExecute(0, _T("open"), _T("C:\\Program Files (x86)\\SimTools\\SimTools_GameEngine.EXE"), _T(""), _T(""), SW_SHOWMINIMIZED);
 		Sleep(5000);
 		/*if (NULL == ::FindWindow(NULL, TEXT("DIRT 3")))
 		{
-			HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), m_sConfigParameterList.tcaGameFolderPath, SW_SHOWMINIMIZED);
-			if (ret <= (HINSTANCE)32)
-			{
-				AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
-				exit(-1);
-			}
+		HINSTANCE ret = ShellExecute(0, TEXT("open"), m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), m_sConfigParameterList.tcaGameFolderPath, SW_SHOWMINIMIZED);
+		if (ret <= (HINSTANCE)32)
+		{
+		AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
+		exit(-1);
+		}
 		}
 		int t_timing = 0;
 		while (NULL == ::FindWindow(NULL, TEXT("Lockheed Martin® Prepar3D® v3")))
 		{
-			Sleep(1000);
-			t_timing++;
-			if (15 <= t_timing)
-			{
-				AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
-				exit(-1);
-			}
+		Sleep(1000);
+		t_timing++;
+		if (15 <= t_timing)
+		{
+		AfxMessageBox(TEXT("Game fail to run!\r\nPlease Check!"));
+		exit(-1);
+		}
 		}*/
 		Sleep(3000);
 	}
@@ -640,312 +905,9 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 	}
 	return 0;
 }
-int CGamePlatformDlg::P3D_ExternalControlDataProcess(DataToHost tsDataToHost)
-{
-	double tdValue;
-	if ((85 < tsDataToHost.attitude[0]) && (210 > tsDataToHost.attitude[0]))
-	{
-		tdValue = (tsDataToHost.attitude[0]-85) / 1.25;
-		if (100.0 <= tdValue)
-		{
-			tdValue = 100.0;
-		}
-		else if (0.0 >= tdValue)
-		{
-			tdValue = 0.0;
-		}
-	}
-	else if ((85 >= tsDataToHost.attitude[0]) && (0 <= tsDataToHost.attitude[0]))
-	{
-		tdValue = 0;
-	}
-	else if ((210 <= tsDataToHost.attitude[0]) && (255 >= tsDataToHost.attitude[0]))
-	{
-		tdValue = 100;
-	}
-	else
-	{
-		tdValue = m_sP3D_Para.sThrottles.dThrottle1;
-	}
-	m_sP3D_Para.sThrottles.dThrottle1 = tdValue;
+#pragma endregion
 
-	if ((50 < tsDataToHost.nRev1) && (210 > tsDataToHost.nRev1))
-	{
-		tdValue = (210-tsDataToHost.nRev1)/1.6;
-	}
-	else if ((50 >= tsDataToHost.nRev1) && (0 <= tsDataToHost.nRev1))
-	{
-		tdValue = 100;
-	}
-	else if ((210 <= tsDataToHost.nRev1) && (255 >= tsDataToHost.nRev1))
-	{
-		tdValue = 0;
-	}
-	else
-	{
-		tdValue=m_sP3D_Para.sOtherControl.nCollectivePosition;
-	}
-	m_sP3D_Para.sOtherControl.nCollectivePosition = tdValue;
-	//m_sP3D_Para.sThrottles.dThrottle1 = 2000;
-
-	//m_sP3D_Para.sThrottles.dThrottle2 = m_sP3D_Para.sThrottles.dThrottle1;
-	//pitch
-	//m_sP3D_Para.sElevator.dElevatorPercent = (ConnectToController.m_sReturnedDataFromDOF.motor_code[1] - 4095.0 / 2.0) / (4095.0 / 2.0);
-	//if (1.0 <= m_sP3D_Para.sElevator.dElevatorPercent)
-	//{
-	//	m_sP3D_Para.sElevator.dElevatorPercent = 1.0;
-	//}
-	//else if (-1.0 >= m_sP3D_Para.sElevator.dElevatorPercent)
-	//{
-	//	m_sP3D_Para.sElevator.dElevatorPercent = -1.0;
-	//}
-	//else if ((-0.05 <= m_sP3D_Para.sElevator.dElevatorPercent) && (0.05 >= m_sP3D_Para.sElevator.dElevatorPercent))
-	//{
-	//	m_sP3D_Para.sElevator.dElevatorPercent = 0.0;
-	//}
-	////roll
-	//m_sP3D_Para.sAileron.dAileronPercent = (ConnectToController.m_sReturnedDataFromDOF.motor_code[2] - 4095.0 / 2.0) / (4095.0 / 2.0);
-	//if (1.0 <= m_sP3D_Para.sAileron.dAileronPercent)
-	//{
-	//	m_sP3D_Para.sAileron.dAileronPercent = 1.0;
-	//}
-	//else if (-1.0 >= m_sP3D_Para.sAileron.dAileronPercent)
-	//{
-	//	m_sP3D_Para.sAileron.dAileronPercent = -1.0;
-	//}
-	//else if ((-0.05 <= m_sP3D_Para.sAileron.dAileronPercent) && (0.05 >= m_sP3D_Para.sAileron.dAileronPercent))
-	//{
-	//	m_sP3D_Para.sAileron.dAileronPercent = 0.0;
-	//}
-	//m_sP3D_Para.sAileron.dAileronPercent = 0;
-	//ruder
-	if ((80 < tsDataToHost.nRev0) && (100 > tsDataToHost.nRev0))
-	{
-		tdValue = 0;
-	}
-	else if ((80 > tsDataToHost.nRev0) && (0 <= tsDataToHost.nRev0))
-	{
-		tdValue = (80.0-tsDataToHost.nRev0) / 75.0;
-		if (1.0<tdValue)
-		{
-			tdValue = 1.0;
-		}
-	}
-	else if ((100 < tsDataToHost.nRev0) && (255 >= tsDataToHost.nRev0))
-	{
-		tdValue = (100.0-tsDataToHost.nRev0) / 70.0;
-		
-		if (-1.0>tdValue)
-		{
-			tdValue = -1.0;
-		}
-	}
-	else
-	{
-		tdValue = m_sP3D_Para.sRudder.dRudderPercent;
-	}
-	m_sP3D_Para.sRudder.dRudderPercent = tdValue;
-
-	//m_sP3D_Para.sRudder.dRudderPercent = 0;
-	//brake
-	/*m_sP3D_Para.sBrake.dBrakePercentL = ConnectToController.m_sReturnedDataFromDOF.motor_code[4] / 40.95;
-	if (5.0 > m_sP3D_Para.sBrake.dBrakePercentL)
-	{
-		m_sP3D_Para.sBrake.dBrakePercentL = 0.0;
-	}
-	else if (100 <= m_sP3D_Para.sBrake.dBrakePercentL)
-	{
-		m_sP3D_Para.sBrake.dBrakePercentL = 100.0;
-	}
-
-	m_sP3D_Para.sBrake.dBrakePercentR = m_sP3D_Para.sBrake.dBrakePercentL;*/
-	return 0;
-}
-int CGamePlatformDlg::P3D_DataProcess()
-{
-	if (FALSE == m_bStepSignalFlag)
-	{
-		ConnectToController.m_sToDOFBuf.nCheckID = 55;
-		ConnectToController.m_sToDOFBuf.nCmd = 0;
-
-		ConnectToController.m_sToDOFBuf.DOFs[0] = SpecialFunctions.fnval(m_faKnots, m_faPitchCoefs, m_FnvalTiming)*0.4;
-		ConnectToController.m_sToDOFBuf.DOFs[1] = SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, m_FnvalTiming)*0.4;
-		ConnectToController.m_sToDOFBuf.DOFs[2] = (SpecialFunctions.fnval(m_faKnots, m_faYawCoefs, m_FnvalTiming))*0.2f; //0.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[3] = 0.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[4] = 0.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[5] = 0.0f;
-
-		m_sPitchParaList.fDesPos = ConnectToController.m_sToDOFBuf.DOFs[0];
-		m_sPitchParaList.fMaxDesPos = 15.0;
-		ConnectToController.m_sToDOFBuf.DOFs[0] = SpecialFunctions.LimitVelAndACC(&m_sPitchParaList);
-		m_sRollParaList.fDesPos = ConnectToController.m_sToDOFBuf.DOFs[1];
-		m_sRollParaList.fMaxDesPos = 15.0;
-		ConnectToController.m_sToDOFBuf.DOFs[1] = SpecialFunctions.LimitVelAndACC(&m_sRollParaList);
-
-		ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf), sizeof(ConnectToController.m_sToDOFBuf), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-
-		/*SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_THROTTLE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_ThrottleControl), &m_sP3D_Para.sThrottles);
-		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_ELEVATOR, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_ElevatorControl), &m_sP3D_Para.sElevator);
-		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_AILERON, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_AileronControl), &m_sP3D_Para.sAileron);
-		SimConnect_SetDataOnSimObject(m_hSimConnect, DEFINITION_BRAKE, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(P3D_BrakeControl), &m_sP3D_Para.sBrake);*/
-		if (m_FnvalTiming >= 4)
-		{
-			//SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_ATTITUDE, DEFINITION_ATTITUDE, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
-			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_PANEL, DEFINITION_PANEL, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
-			SimConnect_RequestDataOnSimObjectType(m_hSimConnect, REQUEST_LIGHTS_SWITCHS, DEFINITION_LIGHTS_SWITCHS, 0, SIMCONNECT_SIMOBJECT_TYPE_USER);
-			SimConnect_CallDispatch(m_hSimConnect, ::MyDispatchProcRD, this);
-
-
-
-			m_faPitchCoefs[0] = m_faPitchCoefs[1];
-			m_faPitchCoefs[1] = m_faPitchCoefs[2];
-			m_faPitchCoefs[2] = m_faPitchCoefs[3];
-			m_faPitchCoefs[3] = m_faPHB_Buffer[0];
-
-			m_faRollCoefs[0] = m_faRollCoefs[1];
-			m_faRollCoefs[1] = m_faRollCoefs[2];
-			m_faRollCoefs[2] = m_faRollCoefs[3];
-			m_faRollCoefs[3] = m_faPHB_Buffer[1];
-
-			m_faYawCoefs[0] = m_faYawCoefs[1];
-			m_faYawCoefs[1] = m_faYawCoefs[2];
-			m_faYawCoefs[2] = m_faYawCoefs[3];
-			m_faYawCoefs[3] = m_faPHB_Buffer[2];
-
-			m_FnvalTiming = 0;
-		}
-		else
-		{
-			m_FnvalTiming++;
-		}
-	}
-	
-	return 0;
-}
-int CGamePlatformDlg::DIRT3_DataProcess()
-{
-	if (0xEEEE == m_sSimtoolsData.Head)
-	{
-		ConnectToController.DOF_ToMedian();
-	}
-	else if (0xFFFF == m_sSimtoolsData.Head)
-	{
-		ConnectToController.m_sToDOFBuf.nCheckID = 55;
-		ConnectToController.m_sToDOFBuf.nCmd = 0;
-
-		ConnectToController.m_sToDOFBuf.DOFs[3] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Sway - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Sway*100.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[4] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Surge - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Surge*100.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[5] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Heave - 0x7FFF)) / 10000 / 1000)	* m_sConfigParameterList.fK_Heave*10.0f*100.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[1] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Roll - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Roll*100.0f \
-			+ ConnectToController.m_sToDOFBuf.DOFs[3] * m_sConfigParameterList.fK1_Sway*100.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[0] = (static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Pitch - 0x7FFF)) / 10000)			* m_sConfigParameterList.fK_Pitch*100.0f \
-			+ ConnectToController.m_sToDOFBuf.DOFs[4] * m_sConfigParameterList.fK1_Surge*100.0f;
-		ConnectToController.m_sToDOFBuf.DOFs[2] = 0;//(static_cast<float>(static_cast<INT16>(m_sSimtoolsData.Yaw - 0x7FFF)) / 10000)			* m_sConfigParameterList.nK_Yaw;
-		
-
-		ConnectToController.SendTo(&(ConnectToController.m_sToDOFBuf), sizeof(ConnectToController.m_sToDOFBuf), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-	}
-	else if (0xBBBB == m_sSimtoolsData.Head)
-	{
-	}
-	char t_buffer[128];
-	sprintf_s(t_buffer, sizeof(t_buffer), "%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#%.3f#", m_sConfigParameterList.fK_Pitch, m_sConfigParameterList.fK_Roll, \
-		m_sConfigParameterList.fK_Yaw, m_sConfigParameterList.fK_Surge, m_sConfigParameterList.fK_Sway, \
-		m_sConfigParameterList.fK_Heave, m_sConfigParameterList.fK1_Surge, m_sConfigParameterList.fK1_Sway);
-	m_CConnectToExternalDevice.SendTo(t_buffer, sizeof(t_buffer), m_nRemotePort, m_csRemoteIP);
-	return 0;
-}
-int CGamePlatformDlg::PCAR2_DataProcess()
-{
-	//VEC_X：对应俯仰，低头为负				右转为负，左转为正，10左右
-	//VEC_Y：对应偏航；
-	//VEC_Z：对应横摇，前冲；右高为负，前冲，加速度为负，正常-10左右，后退，加速度为正，正常10左右，
-	static float preSharedDataOrientation[3] = { 0.0f, 0.0f, 0.0f };
-	static float preSharedDataLocalAcc[3] = { 0.0f, 0.0f, 0.0f };
-	static float preSharedDataRpm = 0.0f;
-	static float preSharedDataSpeed = 0.0f;
-	for (int i = 0; i < 3; i++)
-	{
-		preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i],0.98f);
-		preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
-	}
-	preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
-	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
-
-	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
-	if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	{
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
-			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98);
-
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
-			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98);
-
-		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
-		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
-	}
-	else
-	{
-		for (int i = 0; i < 3; i++)
-		{
-			ConnectToController.m_sDataFromMainControlToDof.DOFs[i] = 0.0f;
-			ConnectToController.m_sDataFromMainControlToDof.DOFs[i+3] = 0.0f;
-			ConnectToController.m_sDataFromMainControlToDof.Vxyz[i] = 0.0f;
-			ConnectToController.m_sDataFromMainControlToDof.Axyz[i] = 0.0f;
-			preSharedDataOrientation[i] = 0.0f;
-			preSharedDataLocalAcc[i] = 0.0f;
-		}
-		preSharedDataRpm = 0.0f;
-		preSharedDataSpeed = 0.0f;
-	}
-	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	{
-		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-	}
-	//if (sharedData->mSequenceNumber % 2)
-	//{
-	//	// Odd sequence number indicates, that write into the shared memory is just happening
-	//	//continue;
-	//}
-	//else
-	//{
-	//	indexChange = sharedData->mSequenceNumber - updateIndex;
-	//	updateIndex = sharedData->mSequenceNumber;
-
-	//	//Copy the whole structure before processing it, otherwise the risk of the game writing into it during processing is too high.
-	//	memcpy(localCopy, sharedData, sizeof(SharedMemory));
-
-
-	//	if (localCopy->mSequenceNumber != updateIndex)
-	//	{
-	//		// More writes had happened during the read. Should be rare, but can happen.
-	//		//continue;
-	//	}
-	//	else
-	//	{
-	//		TRACE(_T("Sequence number increase %d, current index %d, previous index %d\n"), indexChange, localCopy->mSequenceNumber, updateIndex);
-
-	//		const bool isValidParticipantIndex = localCopy->mViewedParticipantIndex != -1 && localCopy->mViewedParticipantIndex < localCopy->mNumParticipants && localCopy->mViewedParticipantIndex < STORED_PARTICIPANTS_MAX;
-	//		if (isValidParticipantIndex)
-	//		{
-	//			const ParticipantInfo& viewedParticipantInfo = localCopy->mParticipantInfo[sharedData->mViewedParticipantIndex];
-	//			TRACE("mParticipantName: (%s)\n", viewedParticipantInfo.mName);
-	//			TRACE("lap Distance = %f \n", viewedParticipantInfo.mCurrentLapDistance);
-	//		}
-
-	//		TRACE("mGameState: (%d)\n", localCopy->mGameState);
-	//		TRACE("mSessionState: (%d)\n", localCopy->mSessionState);
-	//		TRACE("mOdometerKM: (%0.2f)\n", localCopy->mOdometerKM);
-	//		TRACE("mOrientation[0]: (%0.2f)\n", localCopy->mOrientation[0]);
-	//		TRACE("mOrientation[1]: (%0.2f)\n", localCopy->mOrientation[1]);
-	//		TRACE("mOrientation[2]: (%0.2f)\n", localCopy->mOrientation[2]);
-	//		TRACE("mLocalAcceleration[0]: (%0.2f)\n", localCopy->mLocalAcceleration[0]);
-	//		TRACE("mLocalAcceleration[1]: (%0.2f)\n", localCopy->mLocalAcceleration[1]);
-	//		TRACE("mLocalAcceleration[2]: (%0.2f)\n", localCopy->mLocalAcceleration[2]);
-	//	}
-	//}
-	return 0;
-}
+#pragma region 外部UDP数据接收函数
 void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 {
 	int t_nRet = 0;
@@ -967,7 +929,7 @@ void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 		{
 			//lost part data
 		}
-		
+
 		//pGamePlatformDlg->m_sDataToExpansion.uiLightsFlag = 0xF0F0F0F0;			//TEST LIGHTS
 		if (4 == pGamePlatformDlg->m_FnvalTiming)
 		{
@@ -1019,23 +981,21 @@ void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
 			&t_sConfigParameterList.fK_Yaw, &t_sConfigParameterList.fK_Surge, &t_sConfigParameterList.fK_Sway, \
 			&t_sConfigParameterList.fK_Heave, &t_sConfigParameterList.fK1_Surge, &t_sConfigParameterList.fK1_Sway))
 		{
-			memcpy(&pGamePlatformDlg->m_sConfigParameterList.fK_Pitch, &t_sConfigParameterList, sizeof(float)*8);
+			memcpy(&pGamePlatformDlg->m_sConfigParameterList.fK_Pitch, &t_sConfigParameterList, sizeof(float)* 8);
 		}
 	}
 }
 
 void OnReceiveForSimtools(LPVOID pParam, int nErrorCode)
 {
-	TCHAR t_tcReceiveData[128];
 	int t_nRet = 0;
 	CString t_ip;
 	UINT t_port;
-	ConfigParameterList t_sConfigParameterList;
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 	s_simtools_chardata dh;
 	int i = 0;
 
-	if (sizeof(s_simtools_chardata) == pGamePlatformDlg->m_CConnectToLocalSoft.ReceiveFrom(&dh, sizeof(s_simtools_chardata),t_ip,t_port))
+	if (sizeof(s_simtools_chardata) == pGamePlatformDlg->m_CConnectToLocalSoft.ReceiveFrom(&dh, sizeof(s_simtools_chardata), t_ip, t_port))
 	{
 		//recvfrom(Socket_udp_connect_with_simtools, (char *)&dh, sizeof(s_simtools_chardata), 0, (SOCKADDR *)&simtools_Addr, &simtools_AddrSize);
 		for (i = 0; i < 4; i++)
@@ -1069,12 +1029,12 @@ UINT __cdecl ThreadForSimConnect(LPVOID pParam)
 			if (TRUE == pGamePlatformDlg->m_sConfigParameterList.bExternalControlEnable)
 			{
 				//pGamePlatformDlg->P3D_ExternalControlDataProcess();
-				
+
 			}
-			
+
 			//SimConnect_CallDispatch(pGamePlatformDlg->m_hSimConnect, MyDispatchProcRD, pGamePlatformDlg);
 		}
-		
+
 	}
 	return 0;
 }
@@ -1091,6 +1051,9 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	pGamePlatformDlg->m_bGameStartedFlag = TRUE;
 	return 0;
 }
+#pragma endregion
+
+
 
 
 
@@ -1100,7 +1063,6 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 	DWORD ObjectID1;
 	//DWORD ObjectID2;
 	//DWORD ObjectID3;
-	CHAR t_debugmessage[128];
 
 	
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pContext;
@@ -1160,7 +1122,7 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 
 			CString strOutput;
 
-			pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed = pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed * 0.6;
+			pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed = pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed * 0.6f;
 			tAngleToPulseValue = static_cast<int>((-0.0001441*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 5)) + 3.872e-05*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 4) \
 				+ 0.08375*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 3) + (-0.007153*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 2)) \
 				+ 4.929*pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed + 353.8);
@@ -1303,7 +1265,7 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ELECTRICAL_GENALT_BUS_AMPS, strOutput);
 #endif
 			//机油压力表
-			tAngleToPulseValue = static_cast<int>(2.5*pGamePlatformDlg->m_sAircraftPanel.fOilPressure + 312.5)*2*1.5;
+			tAngleToPulseValue = static_cast<int>((2.5*pGamePlatformDlg->m_sAircraftPanel.fOilPressure + 312.5f)*2.0f*1.5f);
 			if (0 > tAngleToPulseValue)
 			{
 				tAngleToPulseValue = 0;
@@ -1533,6 +1495,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		{
 			if ((true == pGamePlatformDlg->Pcar2IsStartUp()) && (false==pGamePlatformDlg->m_Pcar2RunStatus))
 			{
+				Sleep(5000);
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = true;
 				pGamePlatformDlg->Pcar2SharedMemoryInit();
@@ -1545,12 +1508,12 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 			else if ((false == pGamePlatformDlg->Pcar2IsStartUp()) && (false == pGamePlatformDlg->m_Pcar2RunStatus) \
 				&& (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32) && (S_CMD_GAMESTARTUP==pGamePlatformDlg->ConnectToController.m_sDataFromMainControlToDof.nCmd))
 			{
-				pGamePlatformDlg->m_GameStartUpReturnValue = ShellExecute(0, TEXT("open"), pGamePlatformDlg->m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
+				/*pGamePlatformDlg->m_GameStartUpReturnValue = ShellExecute(0, TEXT("open"), pGamePlatformDlg->m_sConfigParameterList.tcaGameExeFilePath, TEXT(""), TEXT(""), SW_SHOWMINIMIZED);
 				if (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32)
 				{
 					AfxMessageBox(TEXT("Game fail to open!\r\nPlease Check!"));
 					exit(-1);
-				}
+				}*/
 			}
 			if (pGamePlatformDlg->m_Pcar2RunStatus == true)
 			{
@@ -1562,9 +1525,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		//nothing
 	}
-	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), pGamePlatformDlg->m_sConfigParameterList.nExpansionPort, pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
-	
-	
+	//pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 }
 
 
@@ -1573,7 +1534,6 @@ void CGamePlatformDlg::OnBnClickedOk()
 {
 	// TODO: Add your control notification handler code here
 	GamesCheckAndPrepare(m_sConfigParameterList.tcaGameName);
-
 	//CDialogEx::OnOK();
 }
 
@@ -1583,7 +1543,7 @@ void CGamePlatformDlg::OnBnClickedGameConfig()
 	// TODO: Add your control notification handler code here
 
 }
-
+#pragma region 托盘相关
 BOOL CGamePlatformDlg::NotifyIconInit(HWND hWnd,UINT uID,UINT nNotifyMsg,HICON hIcon,LPCTSTR lpTip)
 {
 	m_bVisibled = FALSE;
@@ -1695,7 +1655,7 @@ void CGamePlatformDlg::OnRcancel()
 {
 	// TODO:  Add your specialized query end session code here
 	m_bGameStartedFlag = FALSE;
-	ConnectToController.DOF_ToMedian();
+	ConnectToController.DOF_ToBottom();
 	exit(0);
 }
 
@@ -1755,12 +1715,12 @@ void CGamePlatformDlg::OnEndSession(BOOL bEnding)
 	ConnectToController.DOF_ToBottom();
 	exit(0);
 }
+#pragma endregion
 
-
-// //检测Pcar2游戏是否运行
+#pragma region //检测Pcar2游戏是否运行
 bool CGamePlatformDlg::Pcar2IsStartUp()
 {
-	if (NULL == ::FindWindow(NULL, TEXT("Project CARS 2™")))
+	if (NULL == ::FindWindow(NULL, TEXT("PROJECT CARS 2 - WANDA"))) //(NULL == ::FindWindow(NULL, TEXT("Project CARS 2™")))
 	{
 		return false;
 	}
@@ -1769,7 +1729,7 @@ bool CGamePlatformDlg::Pcar2IsStartUp()
 		return true;
 	}
 }
-
+#pragma endregion
 
 int CGamePlatformDlg::Pcar2SharedMemoryInit()
 {
@@ -1783,7 +1743,6 @@ int CGamePlatformDlg::Pcar2SharedMemoryInit()
 
 	// Get the data structure
 	sharedData = (SharedMemory*)MapViewOfFile(fileHandle, PAGE_READONLY, 0, 0, sizeof(SharedMemory));
-	localCopy = new SharedMemory;
 	if (sharedData == NULL)
 	{
 		AfxMessageBox(_T("Could not map view of file (%d).\n"), GetLastError());
@@ -1794,7 +1753,10 @@ int CGamePlatformDlg::Pcar2SharedMemoryInit()
 	// Ensure we're sync'd to the correct data version
 	if (sharedData->mVersion != SHARED_MEMORY_VERSION)
 	{
-		AfxMessageBox(_T("Data version mismatch\n"));
+		CString displayString;
+		displayString.Format(_T("Data version mismatch\nVersiong:%d\r\n"), sharedData->mVersion);
+		AfxMessageBox(displayString);
+		//AfxMessageBox(_T("Data version mismatch\n"));
 		exit(-1);
 	}
 	return 0;

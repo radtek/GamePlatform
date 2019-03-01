@@ -31,7 +31,7 @@ void CConnectToController::OnReceive(int nErrorCode)
 	t_nRet = ReceiveFrom(&returnedDataFromNet, sizeof(returnedDataFromNet), remoteIp, remotePort, 0);
 	if (SOCKET_ERROR == t_nRet)
 	{
-		ErrorWarnOfReceiveFrom(GetLastError());
+		//ErrorWarnOfReceiveFrom(GetLastError());
 	}
 	else if (sizeof(DataToHost) == t_nRet)
 	{
