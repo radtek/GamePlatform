@@ -153,7 +153,6 @@ CGamePlatformDlg::~CGamePlatformDlg()
 {
 	UnmapViewOfFile(sharedData);
 	CloseHandle(fileHandle);
-	delete localCopy;
 }
 
 void CGamePlatformDlg::DoDataExchange(CDataExchange* pDX)
@@ -499,14 +498,14 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 			// Set up a data definition for the throttle control
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
 				"GENERAL ENG PROPELLER LEVER POSITION:1", "percent");					//控制直升机杆上的throttle
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:1", "percent");
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:2", "percent");
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:3", "percent");
-			//hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
-				"GENERAL ENG THROTTLE LEVER POSITION:4", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+			//	"GENERAL ENG THROTTLE LEVER POSITION:1", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+			//	"GENERAL ENG THROTTLE LEVER POSITION:2", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+			//	"GENERAL ENG THROTTLE LEVER POSITION:3", "percent");
+			////hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_THROTTLE, \
+			//	"GENERAL ENG THROTTLE LEVER POSITION:4", "percent");
 
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_ELEVATOR, "ELEVATOR POSITION", "Position");   //Control pitch
 			hr = SimConnect_AddToDataDefinition(m_hSimConnect, DEFINITION_RUDDER, "RUDDER POSITION", "Position");   //Control yaw
@@ -685,7 +684,7 @@ int CGamePlatformDlg::P3D_ExternalControlDataProcess(DataToHost tsDataToHost)
 	{
 		tdValue=m_sP3D_Para.sOtherControl.nCollectivePosition;
 	}
-	m_sP3D_Para.sOtherControl.nCollectivePosition = tdValue;
+	m_sP3D_Para.sOtherControl.nCollectivePosition = (INT)tdValue;
 	//m_sP3D_Para.sThrottles.dThrottle1 = 2000;
 
 	//m_sP3D_Para.sThrottles.dThrottle2 = m_sP3D_Para.sThrottles.dThrottle1;
@@ -768,9 +767,9 @@ int CGamePlatformDlg::P3D_DataProcess()
 		ConnectToController.m_sToDOFBuf.nCheckID = 55;
 		ConnectToController.m_sToDOFBuf.nCmd = 0;
 
-		ConnectToController.m_sToDOFBuf.DOFs[0] = SpecialFunctions.fnval(m_faKnots, m_faPitchCoefs, m_FnvalTiming)*0.4;
-		ConnectToController.m_sToDOFBuf.DOFs[1] = SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, m_FnvalTiming)*0.4;
-		ConnectToController.m_sToDOFBuf.DOFs[2] = (SpecialFunctions.fnval(m_faKnots, m_faYawCoefs, m_FnvalTiming))*0.2f; //0.0f;
+		ConnectToController.m_sToDOFBuf.DOFs[0] = (float)SpecialFunctions.fnval(m_faKnots, m_faPitchCoefs, (float)m_FnvalTiming)*0.4f;
+		ConnectToController.m_sToDOFBuf.DOFs[1] = (float)SpecialFunctions.fnval(m_faKnots, m_faRollCoefs, (float)m_FnvalTiming)*0.4f;
+		ConnectToController.m_sToDOFBuf.DOFs[2] = (float)(SpecialFunctions.fnval(m_faKnots, m_faYawCoefs, (float)m_FnvalTiming))*0.2f; //0.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[3] = 0.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[4] = 0.0f;
 		ConnectToController.m_sToDOFBuf.DOFs[5] = 0.0f;
@@ -875,11 +874,11 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
 	if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
 	{
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
-			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98);
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
+			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98f));
 
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
-			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98);
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
+			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98f));
 
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
@@ -1026,11 +1025,9 @@ void OnReceiveForExternalDevice(LPVOID pParam, int nErrorCode)
 
 void OnReceiveForSimtools(LPVOID pParam, int nErrorCode)
 {
-	TCHAR t_tcReceiveData[128];
 	int t_nRet = 0;
 	CString t_ip;
 	UINT t_port;
-	ConfigParameterList t_sConfigParameterList;
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
 	s_simtools_chardata dh;
 	int i = 0;
@@ -1100,7 +1097,6 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 	DWORD ObjectID1;
 	//DWORD ObjectID2;
 	//DWORD ObjectID3;
-	CHAR t_debugmessage[128];
 
 	
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pContext;
@@ -1160,7 +1156,7 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 
 			CString strOutput;
 
-			pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed = pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed * 0.6;
+			pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed = pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed * 0.6f;
 			tAngleToPulseValue = static_cast<int>((-0.0001441*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 5)) + 3.872e-05*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 4) \
 				+ 0.08375*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 3) + (-0.007153*pow(pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed, 2)) \
 				+ 4.929*pGamePlatformDlg->m_sAircraftPanel.fVerticalSpeed + 353.8);
@@ -1303,7 +1299,7 @@ void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pCont
 			pGamePlatformDlg->SetDlgItemText(IDC_SHOW_ELECTRICAL_GENALT_BUS_AMPS, strOutput);
 #endif
 			//机油压力表
-			tAngleToPulseValue = static_cast<int>(2.5*pGamePlatformDlg->m_sAircraftPanel.fOilPressure + 312.5)*2*1.5;
+			tAngleToPulseValue = static_cast<int>((2.5*pGamePlatformDlg->m_sAircraftPanel.fOilPressure + 312.5f)*2.0f*1.5f);
 			if (0 > tAngleToPulseValue)
 			{
 				tAngleToPulseValue = 0;
@@ -1533,6 +1529,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		{
 			if ((true == pGamePlatformDlg->Pcar2IsStartUp()) && (false==pGamePlatformDlg->m_Pcar2RunStatus))
 			{
+				Sleep(5000);
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = true;
 				pGamePlatformDlg->Pcar2SharedMemoryInit();
@@ -1573,7 +1570,6 @@ void CGamePlatformDlg::OnBnClickedOk()
 {
 	// TODO: Add your control notification handler code here
 	GamesCheckAndPrepare(m_sConfigParameterList.tcaGameName);
-
 	//CDialogEx::OnOK();
 }
 
@@ -1695,7 +1691,7 @@ void CGamePlatformDlg::OnRcancel()
 {
 	// TODO:  Add your specialized query end session code here
 	m_bGameStartedFlag = FALSE;
-	ConnectToController.DOF_ToMedian();
+	ConnectToController.DOF_ToBottom();
 	exit(0);
 }
 
@@ -1783,7 +1779,6 @@ int CGamePlatformDlg::Pcar2SharedMemoryInit()
 
 	// Get the data structure
 	sharedData = (SharedMemory*)MapViewOfFile(fileHandle, PAGE_READONLY, 0, 0, sizeof(SharedMemory));
-	localCopy = new SharedMemory;
 	if (sharedData == NULL)
 	{
 		AfxMessageBox(_T("Could not map view of file (%d).\n"), GetLastError());

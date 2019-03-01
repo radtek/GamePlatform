@@ -469,7 +469,7 @@ public:																	//P3D use parameter.
 	HANDLE					m_hSimConnect;
 	FLOAT					m_faPHB_Buffer[3];
 	INT						m_iQuit;
-	BOOL					m_bSimConnectSuccessFlag;
+	bool					m_bSimConnectSuccessFlag;
 	//
 	FLOAT					m_faKnots[8];
 	FLOAT					m_faPitchCoefs[4];
@@ -497,7 +497,6 @@ public:
 	bool m_Pcar2RunStatus;
 	HANDLE fileHandle;
 	SharedMemory* sharedData;
-	SharedMemory* localCopy;
 	unsigned int updateIndex;
 	unsigned int indexChange;
 	int PCAR2_DataProcess();
