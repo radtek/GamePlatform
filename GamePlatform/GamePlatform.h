@@ -12,7 +12,7 @@
 #include "resource.h"		// main symbols
 
 //#define  USE_EXTERNAL_CONTROL
-#define USE_DOF
+//#define USE_DOF
 //#define SHOW_DLG
 
 // CGamePlatformApp:

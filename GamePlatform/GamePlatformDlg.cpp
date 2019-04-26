@@ -1525,7 +1525,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		//nothing
 	}
-	//pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 }
 
 
