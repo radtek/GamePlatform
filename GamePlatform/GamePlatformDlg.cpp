@@ -670,17 +670,17 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
 
 	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
-	if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	{
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
+	//if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	//{
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = 0.3f*(float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
 			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98f));
 
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = 0.3f*(float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
 			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98f));
 
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
-	}
+	/*}
 	else
 	{
 		for (int i = 0; i < 3; i++)
@@ -696,9 +696,9 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 		preSharedDataSpeed = 0.0f;
 	}
 	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	{
+	{*/
 		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-	}
+	//}
 	return 0;
 }
 #pragma endregion
@@ -1525,7 +1525,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		//nothing
 	}
-	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	//pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 }
 
 
