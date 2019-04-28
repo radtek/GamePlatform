@@ -328,6 +328,7 @@ struct ConfigParameterList
 	BOOL bExternalControlEnable;
 
 	PlatformWorkMode eWorkMode;									//0: free;	1:QR code;	2:Scan IC
+	bool bUseDofAutoInit;
 
 	TCHAR tcaGameName[64];											//
 	TCHAR tcaGameFolderPath[128];									//
@@ -392,7 +393,7 @@ public:
 	const float m_fRollVelocityMax = 1.0f;
 	const float m_fYawMax = 10.0f;
 	const float m_fYawVelocityMax = 0.5f;
-public:
+
 	const CString NameOfConfigFlie = { TEXT("Config1.ini") };
 	HINSTANCE m_GameStartUpReturnValue;
 
@@ -457,8 +458,7 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 
-public:
-	
+
 public:																	//P3D use parameter.
 	FSX_Panel				m_sAircraftPanel;
 	FSX_LightsAndSwitchs	m_sLightsAndSwitchs;
@@ -511,4 +511,6 @@ public:
 	afx_msg void OnToBottom();
 	afx_msg void OnEndSession(BOOL bEnding);
 
+	afx_msg void OnTrayInitPF();
+	afx_msg void OnEnableRun();
 };

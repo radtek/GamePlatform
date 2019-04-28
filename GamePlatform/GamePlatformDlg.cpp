@@ -173,6 +173,8 @@ BEGIN_MESSAGE_MAP(CGamePlatformDlg, CDialogEx)
 	ON_COMMAND(ID_TO_MIDDLE, &CGamePlatformDlg::OnToMiddle)
 	ON_COMMAND(ID_TO_BOTTOM, &CGamePlatformDlg::OnToBottom)
 	ON_WM_ENDSESSION()
+	ON_COMMAND(ID_32784, &CGamePlatformDlg::OnTrayInitPF)
+	ON_COMMAND(ID_ENABLE_RUN, &CGamePlatformDlg::OnEnableRun)
 END_MESSAGE_MAP()
 
 
@@ -431,7 +433,8 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 
 	m_sConfigParameterList.bDlgEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("DLG_ENABLE"), 0, lpFileName);
 	
-
+	//USE_DOF_AUTO_INIT
+	m_sConfigParameterList.bUseDofAutoInit= SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("USE_DOF_AUTO_INIT"), 0, lpFileName);
 }
 
 
@@ -670,17 +673,25 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
 
 	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
-	//if (S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	//{
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = 0.3f*(float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
+	if ((S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)&&((dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)||(dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)))
+	{
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
 			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98f));
+		if (ConnectToController.m_sDataFromMainControlToDof.DOFs[0] < -3.0f)
+		{
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = -3.0f;
+		}
+		else if (ConnectToController.m_sDataFromMainControlToDof.DOFs[0] > 5.0f)
+		{
+			ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = 5.0f;
+		}
 
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = 0.3f*(float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
 			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98f));
 
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
-	/*}
+	}
 	else
 	{
 		for (int i = 0; i < 3; i++)
@@ -696,9 +707,9 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 		preSharedDataSpeed = 0.0f;
 	}
 	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
-	{*/
+	{
 		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
-	//}
+	}
 	return 0;
 }
 #pragma endregion
@@ -1042,11 +1053,12 @@ UINT __cdecl ThreadForSimConnect(LPVOID pParam)
 UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 {
 	CGamePlatformDlg *pGamePlatformDlg = (CGamePlatformDlg *)pParam;
-#ifdef USE_DOF
-	pGamePlatformDlg->ConnectToController.DOF_UpToMedian();
-	//pGamePlatformDlg->ConnectToController.DOF_ToMedian();
-	pGamePlatformDlg->ConnectToController.DOF_ToRun();
-#endif
+	if (true == pGamePlatformDlg->m_sConfigParameterList.bUseDofAutoInit)
+	{
+		pGamePlatformDlg->ConnectToController.DOF_UpToMedian();
+		//pGamePlatformDlg->ConnectToController.DOF_ToMedian();
+		//pGamePlatformDlg->ConnectToController.DOF_ToRun();
+	}
 	//pGamePlatformDlg->GamesCheckAndPrepare(pGamePlatformDlg->m_sConfigParameterList.tcaGameName);
 	pGamePlatformDlg->m_bGameStartedFlag = TRUE;
 	return 0;
@@ -1495,7 +1507,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		{
 			if ((true == pGamePlatformDlg->Pcar2IsStartUp()) && (false==pGamePlatformDlg->m_Pcar2RunStatus))
 			{
-				Sleep(5000);
+				Sleep(10000);
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = true;
 				pGamePlatformDlg->Pcar2SharedMemoryInit();
@@ -1525,7 +1537,7 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 	{
 		//nothing
 	}
-	//pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
 }
 
 
@@ -1659,7 +1671,12 @@ void CGamePlatformDlg::OnRcancel()
 	exit(0);
 }
 
-
+void CGamePlatformDlg::OnTrayInitPF()
+{
+	// TODO: 在此添加命令处理程序代码
+	ConnectToController.DOF_UpToMedian();
+	m_bGameStartedFlag = FALSE;
+}
 BOOL CGamePlatformDlg::OnQueryEndSession()
 {
 	if (!CDialogEx::OnQueryEndSession())
@@ -1684,8 +1701,7 @@ void CGamePlatformDlg::OnToMiddle()
 	if (dof_check_id == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
 	{
 		ConnectToController.DOF_UpToMedian();
-		ConnectToController.DOF_ToMedian();
-		m_bGameStartedFlag = TRUE;
+		m_bGameStartedFlag = FALSE;
 	}
 	else if (dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
 	{
@@ -1694,7 +1710,7 @@ void CGamePlatformDlg::OnToMiddle()
 	}
 	else if (dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)
 	{
-		m_bGameStartedFlag = TRUE;
+		m_bGameStartedFlag = FALSE;
 	}
 }
 
@@ -1760,4 +1776,21 @@ int CGamePlatformDlg::Pcar2SharedMemoryInit()
 		exit(-1);
 	}
 	return 0;
+}
+
+
+
+
+
+void CGamePlatformDlg::OnEnableRun()
+{
+	// TODO: 在此添加命令处理程序代码
+	if ((dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus) || (dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus))
+	{
+		m_bGameStartedFlag = true;
+	}
+	else
+	{
+		AfxMessageBox(TEXT("请先初始化设备，再点击允许运行\r\n"));
+	}
 }
