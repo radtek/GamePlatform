@@ -211,4 +211,15 @@ void CSpecialFunctions::CharToHex(char * pt)
 		*pt += 10;
 	}
 }
+float CSpecialFunctions::InRange(float curValue, float maxValue)
+{
+	if (maxValue < 0.0f)
+		maxValue = -1.0f * maxValue;
 
+	if (curValue > maxValue)
+		return maxValue;
+	else if (curValue < -1.0f * maxValue)
+		return -1.0f * maxValue;
+	else
+		return curValue;
+}

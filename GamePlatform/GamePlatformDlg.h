@@ -324,6 +324,15 @@ struct ConfigParameterList
 	float fK1_Surge;											//additional
 	float fK1_Sway;												//additional
 
+	float fK_PitchFilter;
+	float fK_RollFilter;
+	float fK_YawFilter;															//
+	float fK_SurgeFilter;
+	float fK_SwayFilter;
+	float fK_HeaveFilter;
+
+	float fAttitudeMax[6];
+
 	BOOL bDlgEnable;
 	BOOL bExternalControlEnable;
 
@@ -499,10 +508,15 @@ public:
 	SharedMemory* sharedData;
 	unsigned int updateIndex;
 	unsigned int indexChange;
+	unsigned int m_nRacingState;// RACESTATE_RACING;
+	float m_fRacingRemainTime;
+
 	int PCAR2_DataProcess();
 	// //检测Pcar2游戏是否运行
 	bool Pcar2IsStartUp();
 	int Pcar2SharedMemoryInit();
+
+	//TTS
 public:
 	afx_msg void OnRcancel();
 	afx_msg BOOL OnQueryEndSession();
@@ -513,4 +527,5 @@ public:
 
 	afx_msg void OnTrayInitPF();
 	afx_msg void OnEnableRun();
+	afx_msg void OnReadConfigFile();
 };

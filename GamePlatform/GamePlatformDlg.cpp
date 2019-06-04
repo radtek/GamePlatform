@@ -27,7 +27,6 @@
 #pragma comment(lib,"SimConnect.lib") 
 #endif
 
-
 void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
 UINT __cdecl ThreadForSimConnect(LPVOID pParam);
 void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pContext);
@@ -147,6 +146,7 @@ CGamePlatformDlg::CGamePlatformDlg(CWnd* pParent /*=NULL*/)
 
 	m_Pcar2RunStatus = false;
 	m_GameStartUpReturnValue = (HINSTANCE)0;
+	m_nRacingState = RACESTATE_INVALID;
 }
 
 CGamePlatformDlg::~CGamePlatformDlg()
@@ -175,6 +175,7 @@ BEGIN_MESSAGE_MAP(CGamePlatformDlg, CDialogEx)
 	ON_WM_ENDSESSION()
 	ON_COMMAND(ID_32784, &CGamePlatformDlg::OnTrayInitPF)
 	ON_COMMAND(ID_ENABLE_RUN, &CGamePlatformDlg::OnEnableRun)
+	ON_COMMAND(ID_MOTUS_32788, &CGamePlatformDlg::OnReadConfigFile)
 END_MESSAGE_MAP()
 
 
@@ -420,16 +421,31 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 	m_sConfigParameterList.bExternalControlEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("EXTERNAL_CONTROL_ENABLE"), 0, lpFileName);
 
 
-	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 1, lpFileName)/100.0f;
+	
 	m_sConfigParameterList.fK_Pitch = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH"), 1, lpFileName)/100.0f;
 	m_sConfigParameterList.fK_Roll = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL"), 1, lpFileName)/100.0f;
+	m_sConfigParameterList.fK_Yaw = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW"), 1, lpFileName) / 100.0f;
 	m_sConfigParameterList.fK_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE"), 1, lpFileName)/100.0f;
 	m_sConfigParameterList.fK_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY"), 1, lpFileName)/100.0f;
 	m_sConfigParameterList.fK_Heave = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE"), 1, lpFileName)/100.0f;
-
 	//Additional
 	m_sConfigParameterList.fK1_Surge = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K1_SURGE"), 1, lpFileName) / 100.0f;
 	m_sConfigParameterList.fK1_Sway = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K1_SWAY"), 1, lpFileName) / 100.0f;
+	//Fliter
+	m_sConfigParameterList.fK_PitchFilter= SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_PITCH_FILTER"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_RollFilter = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_ROLL_FILTER"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_YawFilter = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_YAW_FILTER"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_SurgeFilter = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SURGE_FILTER"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_SwayFilter = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_SWAY_FILTER"), 1, lpFileName) / 100.0f;
+	m_sConfigParameterList.fK_HeaveFilter = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("K_HEAVE_FILTER"), 1, lpFileName) / 100.0f;
+	//Max
+	m_sConfigParameterList.fAttitudeMax[0] = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("PITCH_MAX"), 1, lpFileName);
+	m_sConfigParameterList.fAttitudeMax[1] = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("ROLL_MAX"), 1, lpFileName);
+	m_sConfigParameterList.fAttitudeMax[2] = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("YAW_MAX"), 1, lpFileName);
+	m_sConfigParameterList.fAttitudeMax[3] = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("SURGE_MAX"), 1, lpFileName) / 1000.0f;
+	m_sConfigParameterList.fAttitudeMax[4] = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("SWAY_MAX"), 1, lpFileName) / 1000.0f;
+	m_sConfigParameterList.fAttitudeMax[5] = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("HEAVE_MAX"), 1, lpFileName) / 1000.0f;
+	
 
 	m_sConfigParameterList.bDlgEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("DLG_ENABLE"), 0, lpFileName);
 	
@@ -664,33 +680,52 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 	static float preSharedDataLocalAcc[3] = { 0.0f, 0.0f, 0.0f };
 	static float preSharedDataRpm = 0.0f;
 	static float preSharedDataSpeed = 0.0f;
-	for (int i = 0; i < 3; i++)
+
+	if (m_Pcar2RunStatus == true)
 	{
-		preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i], 0.98f);
-		preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
+		m_nRacingState = sharedData->mRaceState;
+		m_fRacingRemainTime = sharedData->mEventTimeRemaining;
+		for (int i = 0; i < 3; i++)
+		{
+			preSharedDataOrientation[i] = SpecialFunctions.firstLag(preSharedDataOrientation[i], sharedData->mOrientation[i], 0.98f);
+			preSharedDataLocalAcc[i] = SpecialFunctions.firstLag(preSharedDataLocalAcc[i], sharedData->mLocalAcceleration[i], 0.98f);
+		}
+		preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
+		preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
 	}
-	preSharedDataRpm = SpecialFunctions.firstLag(preSharedDataRpm, sharedData->mRpm, 0.98f);
-	preSharedDataSpeed = SpecialFunctions.firstLag(preSharedDataSpeed, sharedData->mSpeed, 0.98f);
+	else
+	{
+		m_nRacingState = RACESTATE_INVALID;
+	}
+	
 
 	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
-	if ((S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)&&((dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)||(dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)))
+	if (((S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)|| (true == m_sConfigParameterList.bUseDofAutoInit))
+		&&((dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)||(dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus))
+		&&(55 == ConnectToController.m_sReturnedDataFromDOF.nCheckID)
+		&& ((RACESTATE_RACING == m_nRacingState)||(RACESTATE_NOT_STARTED == m_nRacingState))
+		)
 	{
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f*180.0f*m_sConfigParameterList.fK_Pitch	\
-			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), 0.98f));
-		if (ConnectToController.m_sDataFromMainControlToDof.DOFs[0] < -3.0f)
-		{
-			ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = -3.0f;
-		}
-		else if (ConnectToController.m_sDataFromMainControlToDof.DOFs[0] > 5.0f)
-		{
-			ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = 5.0f;
-		}
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], (preSharedDataOrientation[VEC_X] / 3.14159f * 180.0f * m_sConfigParameterList.fK_Pitch	\
+			- preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK1_Surge), m_sConfigParameterList.fK_PitchFilter));
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[0] = SpecialFunctions.InRange(ConnectToController.m_sDataFromMainControlToDof.DOFs[0], m_sConfigParameterList.fAttitudeMax[0]);
 
-		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f*180.0f*m_sConfigParameterList.fK_Roll	\
-			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), 0.98f));
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = (float)(SpecialFunctions.firstLag(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], (preSharedDataOrientation[VEC_Z] / 3.14159f * 180.0f * m_sConfigParameterList.fK_Roll	\
+			+ preSharedDataLocalAcc[VEC_X] * m_sConfigParameterList.fK1_Sway), m_sConfigParameterList.fK_RollFilter));
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[1] = SpecialFunctions.InRange(ConnectToController.m_sDataFromMainControlToDof.DOFs[1], m_sConfigParameterList.fAttitudeMax[1]);
 
+
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[3] = -preSharedDataLocalAcc[VEC_Z] * m_sConfigParameterList.fK_Surge * 15.0f / 1000.0f;
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[3] = SpecialFunctions.InRange(ConnectToController.m_sDataFromMainControlToDof.DOFs[3], m_sConfigParameterList.fAttitudeMax[3]);
+
+
+		ConnectToController.m_sDataFromMainControlToDof.DOFs[5] = 0.0f;
 		ConnectToController.m_sDataFromMainControlToDof.Vxyz[0] = preSharedDataRpm / 1000.0f;	//发动机转速Revolutions per minute,仪表显示为0.0~8.0*1000
-		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed*60.0f*60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
+		ConnectToController.m_sDataFromMainControlToDof.Vxyz[1] = preSharedDataSpeed * 60.0f * 60.0f / 1000.0f;	//时速单位为Metres per-second，仪表显示为Km/H
+
+	}
+	else if (66== ConnectToController.m_sDataFromMainControlToDof.nCmd)
+	{
 	}
 	else
 	{
@@ -706,6 +741,7 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 		preSharedDataRpm = 0.0f;
 		preSharedDataSpeed = 0.0f;
 	}
+	//单机测试使用，如果控制端发送打开游戏指令时，不执行数据发送
 	if (S_CMD_GAMESTARTUP != ConnectToController.m_sDataFromMainControlToDof.nCmd)
 	{
 		ConnectToController.SendTo(&(ConnectToController.m_sDataFromMainControlToDof), sizeof(ConnectToController.m_sDataFromMainControlToDof), m_sConfigParameterList.nControllerPort, m_sConfigParameterList.tcaControllerIP);
@@ -917,7 +953,6 @@ int CGamePlatformDlg::GamesCheckAndPrepare(LPCTSTR lpName)
 	return 0;
 }
 #pragma endregion
-
 #pragma region 外部UDP数据接收函数
 void OnReceiveForExpansion(LPVOID pParam, int nErrorCode)
 {
@@ -1064,10 +1099,6 @@ UINT __cdecl ThreadPrepareProcess(LPVOID pParam)
 	return 0;
 }
 #pragma endregion
-
-
-
-
 
 void CALLBACK MyDispatchProcRD(SIMCONNECT_RECV* pData, DWORD cbData, void *pContext)
 {
@@ -1505,18 +1536,19 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 		}
 		else if(0 == _tcscmp(pGamePlatformDlg->m_sConfigParameterList.tcaGameName, TEXT("PCAR2")))
 		{
-			if ((true == pGamePlatformDlg->Pcar2IsStartUp()) && (false==pGamePlatformDlg->m_Pcar2RunStatus))
+			if ((false==pGamePlatformDlg->m_Pcar2RunStatus)&& (true == pGamePlatformDlg->Pcar2IsStartUp()))
 			{
-				Sleep(10000);
+				Sleep(15000);
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = true;
 				pGamePlatformDlg->Pcar2SharedMemoryInit();
 			}
-			else if ((false == pGamePlatformDlg->Pcar2IsStartUp()) && (true == pGamePlatformDlg->m_Pcar2RunStatus))
+			else if ((true == pGamePlatformDlg->m_Pcar2RunStatus)&&(false == pGamePlatformDlg->Pcar2IsStartUp()))
 			{
 				pGamePlatformDlg->m_GameStartUpReturnValue = (HINSTANCE)0;
 				pGamePlatformDlg->m_Pcar2RunStatus = false;
 			}
+			//为单机测试正版projectcar游戏准备，方便远程操作；
 			else if ((false == pGamePlatformDlg->Pcar2IsStartUp()) && (false == pGamePlatformDlg->m_Pcar2RunStatus) \
 				&& (pGamePlatformDlg->m_GameStartUpReturnValue <= (HINSTANCE)32) && (S_CMD_GAMESTARTUP==pGamePlatformDlg->ConnectToController.m_sDataFromMainControlToDof.nCmd))
 			{
@@ -1527,17 +1559,32 @@ void CALLBACK TimeProc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1
 					exit(-1);
 				}*/
 			}
-			if (pGamePlatformDlg->m_Pcar2RunStatus == true)
-			{
-				pGamePlatformDlg->PCAR2_DataProcess();
-			}
+			pGamePlatformDlg->PCAR2_DataProcess();
 		}
 	}
 	else
 	{
 		//nothing
 	}
-	pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	//判断MCU通信状态
+	if (pGamePlatformDlg->ConnectToController.m_McuNetDelayCounter >= pGamePlatformDlg->ConnectToController.m_McuNetMaxDelay)
+	{
+		pGamePlatformDlg->ConnectToController.m_McuNetConnectState = false;
+	}
+	else
+	{
+		pGamePlatformDlg->ConnectToController.m_McuNetDelayCounter++;
+	}
+	pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF.nRev1 = pGamePlatformDlg->m_nRacingState;
+	if ((55 == pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF.nCheckID)&&(true==pGamePlatformDlg->ConnectToController.m_McuNetConnectState))
+	{
+		pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	}
+	else
+	{
+		pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF.nDOFStatus = 118;
+		pGamePlatformDlg->ConnectToController.SendTo(&(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF), sizeof(pGamePlatformDlg->ConnectToController.m_sReturnedDataFromDOF),/*10000*/ pGamePlatformDlg->m_sConfigParameterList.nExpansionPort,/*TEXT("192.168.0.130")*/ pGamePlatformDlg->m_sConfigParameterList.tcaExpansionIP);
+	}
 }
 
 
@@ -1736,12 +1783,22 @@ void CGamePlatformDlg::OnEndSession(BOOL bEnding)
 #pragma region //检测Pcar2游戏是否运行
 bool CGamePlatformDlg::Pcar2IsStartUp()
 {
-	if (NULL == ::FindWindow(NULL, TEXT("PROJECT CARS 2 - WANDA"))) //(NULL == ::FindWindow(NULL, TEXT("Project CARS 2™")))
+	HWND hwnd = ::FindWindow(NULL, TEXT("PROJECT CARS 2 - WANDA"));
+	if (NULL == hwnd) //(NULL == ::FindWindow(NULL, TEXT("Project CARS 2™")))
 	{
 		return false;
 	}
 	else
 	{
+		
+		//将窗口置于最前，当前供应商游戏如果不置于最前不能操作游戏；
+		CWnd* pTempWnd = CWnd::FromHandle(hwnd);
+		if (pTempWnd != pTempWnd->GetForegroundWindow())
+		{
+			/*Sleep(10000);
+			pTempWnd->SetForegroundWindow();
+			pTempWnd->SetFocus();*/
+		}
 		return true;
 	}
 }
@@ -1793,4 +1850,11 @@ void CGamePlatformDlg::OnEnableRun()
 	{
 		AfxMessageBox(TEXT("请先初始化设备，再点击允许运行\r\n"));
 	}
+}
+
+
+void CGamePlatformDlg::OnReadConfigFile()
+{
+	// TODO: 在此添加命令处理程序代码
+	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
 }

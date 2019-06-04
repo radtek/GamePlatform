@@ -15,6 +15,9 @@ CConnectToController::CConnectToController()
 	memset(m_tcaControllerIP, 0, sizeof(TCHAR)*17);
 	m_sToDOFBuf.nCheckID = 55;
 	m_sDataFromMainControlToDof.nCheckID = 55;
+	m_sDataFromMainControlToDof.nCmd = 127;
+	m_McuNetConnectState = false;
+	m_McuNetDelayCounter = 0;
 }
 
 
@@ -36,6 +39,8 @@ void CConnectToController::OnReceive(int nErrorCode)
 	else if (sizeof(DataToHost) == t_nRet)
 	{
 		memcpy(&m_sReturnedDataFromDOF, &returnedDataFromNet, sizeof(m_sReturnedDataFromDOF));
+		m_McuNetConnectState = true;
+		m_McuNetDelayCounter = 0;
 	}
 	else if ((10000 == remotePort) && (sizeof(DataToDOF) == t_nRet) && (0==remoteIp.Compare(TEXT("192.168.0.130"))))
 	{

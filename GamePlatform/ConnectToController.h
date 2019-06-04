@@ -66,6 +66,9 @@ public:
 
 	virtual void OnReceive(int nErrorCode);
 	//parameter
+	bool m_McuNetConnectState;
+	const int m_McuNetMaxDelay = 2000;
+	int m_McuNetDelayCounter;
 	const int m_MaxDelay = 6000;					//60000*10ms
 	DataToDOF m_preDataToDof;
 	DataToDOF m_sToDOFBuf;
@@ -73,7 +76,6 @@ public:
 	DataToHost	m_sReturnedDataFromDOF;
 	TCHAR m_tcaControllerIP[17];
 	UINT m_nControllerPort;
-
 
 	//function
 

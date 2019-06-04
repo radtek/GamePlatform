@@ -33,5 +33,6 @@ public:
 		return (1 - filterFactor)*curValue + filterFactor*preValue;
 	}
 	void CharToHex(char *pt);
+	float InRange(float x, float range);
 };
 
