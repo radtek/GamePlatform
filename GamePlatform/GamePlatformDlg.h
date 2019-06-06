@@ -9,8 +9,10 @@
 #include "SpecialFunctions.h"
 #include "SimConnect.h"
 #include "SharedMemory.h"
-
+#include <sapi.h>           // SAPI includes
 #define WM_USER_TRAYICON_NOTIFY	(WM_USER+102)
+
+#define SPEECH_MAX_CHARS		(512)
 //P3D
 struct P3D_Attitude
 {
@@ -517,6 +519,12 @@ public:
 	int Pcar2SharedMemoryInit();
 
 	//TTS
+	bool m_bTtsEnable;
+	CComPtr<ISpVoice>   m_cpVoice;
+	void TtsPrompt(DataToDOF curDataToDof);	
+	TCHAR GmStartSpeech[SPEECH_MAX_CHARS];
+	TCHAR GmFinishSpeech[SPEECH_MAX_CHARS];
+	TCHAR GmEmergSpeech[SPEECH_MAX_CHARS];
 public:
 	afx_msg void OnRcancel();
 	afx_msg BOOL OnQueryEndSession();

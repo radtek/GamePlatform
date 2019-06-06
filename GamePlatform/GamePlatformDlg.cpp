@@ -226,7 +226,6 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	{
 		exit(0);
 	}
-
 	//NOTIFYICON
 	_tcscpy_s(m_szTip,_T("MOTUS"));
 	m_hTrayMenu = LoadMenu(GetModuleHandle(NULL),MAKEINTRESOURCE(IDR_TRAYICON));
@@ -236,6 +235,19 @@ BOOL CGamePlatformDlg::OnInitDialog()
 	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
 
 	CheckProcessMutex(m_sConfigParameterList.tcaGameName);
+	//tts初始化
+	if (FAILED(::CoInitialize(NULL)))
+		return FALSE;
+	HRESULT                 hr;
+	hr = m_cpVoice.CoCreateInstance(CLSID_SpVoice);
+	m_cpVoice->SetRate(2);
+	//加下面这句之后，后面的语音才能输出
+	m_cpVoice->Speak(_T(""), SPF_ASYNC, NULL);
+	//if(true==m_bTtsEnable)
+	//m_cpVoice->Speak(GmFinishSpeech, 0, NULL);
+	//CString test = TEXT("123456");
+	//m_cpVoice->Speak(test, SPF_ASYNC, NULL);
+
 	//Controller
 	_tcscpy_s(ConnectToController.m_tcaControllerIP, m_sConfigParameterList.tcaControllerIP);
 	ConnectToController.m_nControllerPort = m_sConfigParameterList.nControllerPort;
@@ -451,6 +463,12 @@ void CGamePlatformDlg::GetNecessaryDataFromConfigFile(LPCTSTR lpFileName)
 	
 	//USE_DOF_AUTO_INIT
 	m_sConfigParameterList.bUseDofAutoInit= SpecialFunctions.GetIntDataFromConfigFile(TEXT("GAME_PARAMETER"), TEXT("USE_DOF_AUTO_INIT"), 0, lpFileName);
+
+	//获取语音内容
+	m_bTtsEnable = SpecialFunctions.GetIntDataFromConfigFile(TEXT("TTS_CONTENT"), TEXT("TTS_ENABLE"), 0, lpFileName);
+	SpecialFunctions.GetStringFromConfigFile(TEXT("TTS_CONTENT"), TEXT("GM_START_SPEECH"), NULL, GmStartSpeech, sizeof(TCHAR) * SPEECH_MAX_CHARS, lpFileName);
+	SpecialFunctions.GetStringFromConfigFile(TEXT("TTS_CONTENT"), TEXT("GM_FINISH_SPEECH"), NULL, GmFinishSpeech, sizeof(TCHAR)* SPEECH_MAX_CHARS, lpFileName);
+	SpecialFunctions.GetStringFromConfigFile(TEXT("TTS_CONTENT"), TEXT("GM_EMERGE_SPEECH"), NULL, GmEmergSpeech, sizeof(TCHAR)* SPEECH_MAX_CHARS, lpFileName);
 }
 
 
@@ -698,7 +716,7 @@ int CGamePlatformDlg::PCAR2_DataProcess()
 		m_nRacingState = RACESTATE_INVALID;
 	}
 	
-
+	TtsPrompt(ConnectToController.m_sDataFromMainControlToDof);
 	//TRACE("%7.2f|%7.2f|%7.2f|%7.2f|%7.2f\r\n", ConnectToController.m_sDataFromMainControlToDof.DOFs[0], ConnectToController.m_sDataFromMainControlToDof.DOFs[1], ConnectToController.m_sDataFromMainControlToDof.DOFs[2], sharedData->mLocalAcceleration[VEC_X], sharedData->mLocalAcceleration[VEC_Z]);
 	if (((S_CMD_RUN == ConnectToController.m_sDataFromMainControlToDof.nCmd)|| (true == m_sConfigParameterList.bUseDofAutoInit))
 		&&((dof_neutral == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus)||(dof_working == ConnectToController.m_sReturnedDataFromDOF.nDOFStatus))
@@ -1857,4 +1875,34 @@ void CGamePlatformDlg::OnReadConfigFile()
 {
 	// TODO: 在此添加命令处理程序代码
 	GetNecessaryDataFromConfigFile(NameOfConfigFlie);
+}
+//基于平台状态切换语音提示
+void CGamePlatformDlg::TtsPrompt(DataToDOF curDataToDof)
+{
+	static DataToDOF preDataToDof;
+	if (true == m_bTtsEnable)
+	{
+		if (preDataToDof.nCmd != curDataToDof.nCmd)
+		{
+			preDataToDof = curDataToDof;
+
+			if (6 == curDataToDof.nCmd)
+			{
+				m_cpVoice->Speak(GmStartSpeech, SPF_ASYNC, NULL);
+			}
+			else if (7 == curDataToDof.nCmd)
+			{
+				m_cpVoice->Speak(GmFinishSpeech, SPF_ASYNC, NULL);
+			}
+			else if (66 == curDataToDof.nCmd)
+			{
+				m_cpVoice->Speak(GmEmergSpeech, SPF_ASYNC, NULL);
+			}
+		}
+		else
+		{
+
+		}
+	}
+	
 }
